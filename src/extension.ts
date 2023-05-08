@@ -44,21 +44,23 @@ function isEUCJP(str: Buffer): boolean {
  * @returns 変換後の文字列
  */
 function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
-	let convertedString: number[] = [];
+	let convertedString: number[] = new Array(str.length);
+	let convertedStringIndex = 0;
 	for (let i = 0; i < str.length; i++) {
 		if (i + 2 < str.length) {
 			if (str[i] === 0x8F && str[i + 1] === 0xA2 && str[i + 2] === 0xB7) {
-				convertedString.push(0xA1, 0xC1);
+				convertedString[convertedStringIndex] = 0xA1;
+				convertedString[convertedStringIndex + 1] = 0xC1;
 
 				i += 2;
+				convertedStringIndex += 2;
 				continue;
 			}
 		}
-
-		convertedString.push(str[i]);
+		convertedString[convertedStringIndex++] = str[i];
 	}
 
-	return Buffer.from(convertedString);
+	return Buffer.from(convertedString.slice(0, convertedStringIndex));
 }
 
 
