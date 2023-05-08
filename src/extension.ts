@@ -1,26 +1,66 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as fs from "fs";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "wave-dash-unify" is now active!');
+	// ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
+	vscode.workspace.onDidSaveTextDocument((document) => {
+		const filePath = document.uri.fsPath;
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('wave-dash-unify.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Wave Dash Unify!');
+		const content = fs.readFileSync(filePath);
+
+		// 全角チルダを波ダッシュに統一
+		// 0x8FA2B7 を 0xA1C1に変換
+		if (isEUCJP(content)) {
+			const convertedString = replaceFullWidthTildeToWaveDash(content);
+			fs.writeFileSync(filePath, convertedString);
+		}
+
+		// ファイルの内容を取得
 	});
 
-	context.subscriptions.push(disposable);
 }
 
+/**
+ *	ファイルの文字コードがEUC-JPかを判定する
+ *
+ * @param str 判定する文字列
+ * @returns true: EUC-JP, false: EUC-JP以外
+ */
+function isEUCJP(str: Buffer): boolean {
+	const Encoding = require('encoding-japanese');
+
+	if (Encoding.detect(str, 'EUCJP') === 'EUCJP') {
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * 与えられた文字列中の全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変換する
+ *
+ * @param str 変換元の文字列
+ * @returns 変換後の文字列
+ */
+function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
+	let convertedString: number[] = [];
+	for (let i = 0; i < str.length; i++) {
+		if (i + 2 < str.length) {
+			if (str[i] === 0x8F && str[i + 1] === 0xA2 && str[i + 2] === 0xB7) {
+				convertedString.push(0xA1, 0xC1);
+
+				i += 2;
+				continue;
+			}
+		}
+
+		convertedString.push(str[i]);
+	}
+
+	return Buffer.from(convertedString);
+}
+
+
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }
