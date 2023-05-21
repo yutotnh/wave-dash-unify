@@ -5,7 +5,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
 	vscode.workspace.onDidSaveTextDocument((document) => {
 		const config = vscode.workspace.getConfiguration("waveDashUnify");
-		if (!config.get("enable")) {return;}
+		if (!config.get("enable")) { return; }
 
 		const filePath = document.uri.fsPath;
 
@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
  * @param str 判定する文字列
  * @returns `true`: EUC-JP, `false`: EUC-JP以外
  */
-function isEUCJP(str: Buffer): boolean {
+export function isEUCJP(str: Buffer): boolean {
 	const Encoding = require("encoding-japanese");
 
 	return Encoding.detect(str, "EUCJP") === "EUCJP";
@@ -48,7 +48,7 @@ function isEUCJP(str: Buffer): boolean {
  * @param str 変換元の文字列
  * @returns 変換後の文字列
  */
-function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
+export function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
 	let convertedString: number[] = new Array(str.length);
 	let convertedStringIndex = 0;
 	for (let i = 0; i < str.length; i++) {
