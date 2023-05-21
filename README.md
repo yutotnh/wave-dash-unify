@@ -1,35 +1,24 @@
-# wave-dash-unify README
+# Wave Dash Unify README
 
-This is the README for your extension "wave-dash-unify". After writing up a brief description, we recommend including the following sections.
+EUC-JPのファイルを保存した時に、全角チルダ(0x87 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変更します
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+VS Codeではファイルの文字コードにEUC-JPを指定した状態で`～`という文字を保存した際に一般的に使われる波ダッシュ(0xA1 0xC1)ではなく、全角チルダ(0x87 0xA2 0xB7)で保存されます
 
-For example if there is an image subfolder under your extension project workspace:
+そのため、VS Codeで`～`を含まれるEUC-JPのファイルを編集した際に他のツールでファイルを閲覧すると文字化けするといった問題が発生します
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+この拡張機能をインストールすると、EUC-JPのファイルを保存した時に全角チルダ(0x87 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変更し、前述の文字化け問題を回避します
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+* `waveDashUnify.enable`: Enable Wave Dash Unify
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+`Ctrl+S`を長押しするなどして、短時間に連続して`～`の含まれるEUC-JPのファイルを保存した場合に、下記画像のようなエラーが発生します
+
+![overrite error](doc/overwrite-error.png)
 
 ## Release Notes
 
@@ -37,35 +26,4 @@ Users appreciate release notes as you update your extension.
 
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial release
