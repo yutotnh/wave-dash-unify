@@ -3,12 +3,23 @@
   "displayName": "Wave Dash Unify",
   "description": "Automatically converts both FULLWIDTH TILDE and WAVE DASH characters to the WAVE DASH character",
   "version": "0.0.1",
+  "publisher": "yutotnh",
   "engines": {
     "vscode": "^1.78.0"
   },
   "categories": [
     "Other"
   ],
+  "icon": "./doc/icon.png",
+  "bugs": {
+    "url": "https://github.com/yutotnh/wave-dash-unify/issues"
+  },
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/yutotnh/wave-dash-unify.git"
+    },
+  "homepage": "https://github.com/yutotnh/wave-dash-unify",
+  "license": "SEE LICENSE IN LICENSE",
   "activationEvents": [
     "*"
   ],

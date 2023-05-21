@@ -1,4 +1,4 @@
-# Wave Dash Unify README
+# Wave Dash Unify
 
 EUC-JPのファイルを保存した時に、全角チルダ(0x87 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変更します
 
@@ -18,7 +18,7 @@ VS Codeではファイルの文字コードにEUC-JPを指定した状態で`～
 
 `Ctrl+S`を長押しするなどして、短時間に連続して`～`の含まれるEUC-JPのファイルを保存した場合に、下記画像のようなエラーが発生します
 
-![overrite error](doc/overwrite-error.png)
+![overwrite error](./doc/overwrite-error.png)
 
 ## Release Notes
 
