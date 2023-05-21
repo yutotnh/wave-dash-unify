@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
 		// これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
 		// TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
-		if (Buffer.compare(convertedString, content) == 0) {
+		if (Buffer.compare(convertedString, content) === 0) {
 			return;
 		}
 
