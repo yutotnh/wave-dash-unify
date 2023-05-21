@@ -14,12 +14,16 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "wave-dash-unify.helloWorld",
-        "title": "Hello World"
-      }
-    ]
+    "configuration": {
+        "title": "Wave Dash Unify",
+        "properties": {
+            "waveDashUnify.enable": {
+                "type": "boolean",
+                "default": true,
+                "description": "Enable Wave Dash Unify"
+            }
+        }
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",

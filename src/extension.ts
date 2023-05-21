@@ -4,6 +4,9 @@ import * as fs from "fs";
 export function activate(context: vscode.ExtensionContext) {
 	// ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
 	vscode.workspace.onDidSaveTextDocument((document) => {
+		const config = vscode.workspace.getConfiguration("waveDashUnify");
+		if (!config.get("enable")) {return;}
+
 		const filePath = document.uri.fsPath;
 
 		const content = fs.readFileSync(filePath);
