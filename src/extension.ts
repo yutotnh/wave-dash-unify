@@ -1,40 +1,42 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 import * as fs from "fs";
 
 export function activate(context: vscode.ExtensionContext) {
-
 	// ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
 	vscode.workspace.onDidSaveTextDocument((document) => {
 		const filePath = document.uri.fsPath;
 
 		const content = fs.readFileSync(filePath);
 
-		// 全角チルダを波ダッシュに統一
-		// 0x8FA2B7 を 0xA1C1に変換
-		if (isEUCJP(content)) {
-			const convertedString = replaceFullWidthTildeToWaveDash(content);
-			fs.writeFileSync(filePath, convertedString);
+		if (!isEUCJP(content)) {
+			return;
 		}
 
-		// ファイルの内容を取得
-	});
+		const convertedString = replaceFullWidthTildeToWaveDash(content);
 
+		// 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
+		// これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
+		// TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
+		if (Buffer.compare(convertedString, content) == 0) {
+			return;
+		}
+
+		fs.writeFileSync(filePath, convertedString, { flag: "w" });
+	});
 }
 
 /**
- *	ファイルの文字コードがEUC-JPかを判定する
+ * ファイルの文字コードがEUC-JPかを判定する
+ *
+ * ASCIIのみのファイルもEUC-JPと判定される
  *
  * @param str 判定する文字列
- * @returns true: EUC-JP, false: EUC-JP以外
+ * @returns `true`: EUC-JP, `false`: EUC-JP以外
  */
 function isEUCJP(str: Buffer): boolean {
-	const Encoding = require('encoding-japanese');
+	const Encoding = require("encoding-japanese");
 
-	if (Encoding.detect(str, 'EUCJP') === 'EUCJP') {
-		return true;
-	}
-
-	return false;
+	return Encoding.detect(str, "EUCJP") === "EUCJP";
 }
 
 /**
@@ -62,7 +64,6 @@ function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
 
 	return Buffer.from(convertedString.slice(0, convertedStringIndex));
 }
-
 
 // This method is called when your extension is deactivated
 export function deactivate() { }
