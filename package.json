@@ -10,14 +10,14 @@
   "categories": [
     "Other"
   ],
-  "icon": "./doc/icon.png",
+  "icon": "doc/icon.png",
   "bugs": {
     "url": "https://github.com/yutotnh/wave-dash-unify/issues"
   },
   "repository": {
-      "type": "git",
-      "url": "https://github.com/yutotnh/wave-dash-unify.git"
-    },
+    "type": "git",
+    "url": "https://github.com/yutotnh/wave-dash-unify.git"
+  },
   "homepage": "https://github.com/yutotnh/wave-dash-unify",
   "license": "SEE LICENSE IN LICENSE",
   "activationEvents": [
@@ -26,14 +26,14 @@
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
-        "title": "Wave Dash Unify",
-        "properties": {
-            "waveDashUnify.enable": {
-                "type": "boolean",
-                "default": true,
-                "description": "Enable Wave Dash Unify"
-            }
+      "title": "Wave Dash Unify",
+      "properties": {
+        "waveDashUnify.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Wave Dash Unify"
         }
+      }
     }
   },
   "scripts": {
