@@ -16,6 +16,8 @@ VS Codeではファイルの文字コードにEUC-JPを指定した状態で`～
 
 ## Known Issues
 
+### [Ctrl+Sを長押しすると、ファイルの上書きに失敗する](https://github.com/yutotnh/wave-dash-unify/issues/13)
+
 `Ctrl+S`を長押しするなどして、短時間に連続して`～`の含まれるEUC-JPのファイルを保存した場合に、下記画像のようなエラーが発生します
 
 ![overwrite error](./doc/overwrite-error.png)
@@ -24,6 +26,6 @@ VS Codeではファイルの文字コードにEUC-JPを指定した状態で`～
 
 Users appreciate release notes as you update your extension.
 
-### 1.0.0
+### 0.0.1
 
 Initial release
