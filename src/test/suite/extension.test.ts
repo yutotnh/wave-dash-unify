@@ -23,7 +23,7 @@ suite('Extension Test Suite', () => {
 		];
 
 		eucjpContents.forEach(content => {
-			assert.strictEqual(true, extension.isEUCJP(content), `content: ${content.toString('hex')}`);
+			assert.strictEqual(extension.isEUCJP(content), true, `content: ${content.toString('hex')}`);
 		});
 
 		const notEucjpContents = [
@@ -41,7 +41,7 @@ suite('Extension Test Suite', () => {
 		];
 
 		notEucjpContents.forEach(content => {
-			assert.strictEqual(false, extension.isEUCJP(content), `content: ${content.toString('hex')}`);
+			assert.strictEqual(extension.isEUCJP(content), false, `content: ${content.toString('hex')}`);
 		});
 	});
 
@@ -51,24 +51,38 @@ suite('Extension Test Suite', () => {
 	test('replace full-width tilde to wave dash', () => {
 		const contents = [
 			// 全角チルダのみ
+			// 文字列: "～"
 			{
 				before: Buffer.from([0x8F, 0xA2, 0xB7]),
 				after: Buffer.from([0xA1, 0xC1]),
 			},
+			// 文字列: "～～"
 			{
 				before: Buffer.from([0x8F, 0xA2, 0xB7, 0x8F, 0xA2, 0xB7]),
 				after: Buffer.from([0xA1, 0xC1, 0xA1, 0xC1]),
 			},
 
 			// 全角チルダの前後にASCII文字
+			// 文字列: "1～～2"
 			{
 				before: Buffer.from([0x31, 0x8F, 0xA2, 0xB7, 0x8F, 0xA2, 0xB7, 0x32]),
 				after: Buffer.from([0x31, 0xA1, 0xC1, 0xA1, 0xC1, 0x32]),
 			},
+
+			// 全角チルダを含まないECU-JPの文字列
+			// 文字列: "あ"
+			{
+				before: Buffer.from([0xA4, 0xA2]),
+				after: Buffer.from([0xA4, 0xA2])
+			}
 		];
 
 		contents.forEach(content => {
-			assert.strictEqual(content.after.toString('hex'), extension.replaceFullWidthTildeToWaveDash(content.before).toString('hex'), `content: ${content.before.toString('hex')}`);
+			assert.strictEqual(
+				extension.replaceFullWidthTildeToWaveDash(content.before).toString('hex'),
+				content.after.toString('hex'),
+				`content: ${content.before.toString('hex')}`
+			);
 		});
 	});
 });

@@ -21,7 +21,7 @@
   "homepage": "https://github.com/yutotnh/wave-dash-unify",
   "license": "SEE LICENSE IN LICENSE",
   "activationEvents": [
-    "*"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
