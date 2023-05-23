@@ -10,6 +10,23 @@ suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
 	/**
+	 * 拡張機能の動作設定(ID: waveDashUnify.enable)の値を返す関数をテストする
+	 */
+	test('isEnabled', async () => {
+		const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+		// 拡張機能の動作設定(ID: waveDashUnify.enable)がtrueのとき
+		await config.update("enable", true, vscode.ConfigurationTarget.Global);
+
+		assert.strictEqual(extension.isEnabled(), true);
+
+		// 拡張機能の動作設定(ID: waveDashUnify.enable)がfalseのとき
+		await config.update("enable", false, vscode.ConfigurationTarget.Global);
+
+		assert.strictEqual(extension.isEnabled(), false);
+	});
+
+	/**
 	 * 文字列がEUC-JPかを判定する関数をテストする
 	 */
 	test('detect EUC-JP', () => {

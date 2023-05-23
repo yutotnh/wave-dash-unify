@@ -43,9 +43,9 @@ export function isEnabled(): boolean {
  * @returns `true`: EUC-JP, `false`: EUC-JP以外
  */
 export function isEUCJP(str: Buffer): boolean {
-	const Encoding = require("encoding-japanese");
+	const encoding = require("encoding-japanese");
 
-	return Encoding.detect(str, "EUCJP") === "EUCJP";
+	return encoding.detect(str, "EUCJP") === "EUCJP";
 }
 
 /**
