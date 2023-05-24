@@ -1,5 +1,7 @@
 import * as assert from "assert";
 import * as extension from "../../extension";
+import * as fs from "fs";
+import * as tmp from "tmp";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -8,6 +10,61 @@ import * as vscode from "vscode";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
+
+  /**
+   * 統合テスト
+   */
+  test("replace full-width tilde to wave dash 2", async () => {
+
+    /**
+     * 統合テスト
+     */
+    async function integrationTest(enable: boolean, contents: Buffer, expect: Buffer) {
+      // HACK 設定を意図的に有効にしないと、テストが失敗するため、設定を有効にする
+      const config = vscode.workspace.getConfiguration("waveDashUnify");
+      await config.update("enable", enable, vscode.ConfigurationTarget.Global);
+
+      const tmpFile = tmp.fileSync();
+
+      fs.writeFileSync(
+        tmpFile.name,
+        contents
+      );
+
+      extension.replaceFullWidthTildeToWaveDash(tmpFile.name);
+
+      const actual = fs.readFileSync(tmpFile.name);
+
+      assert.strictEqual(
+        actual.toString("hex"),
+        expect.toString("hex"),
+        `content: ${actual.toString("hex")}`
+      );
+    }
+
+    const testCase = [
+      {
+        enable: true,
+        contents: Buffer.from([0x8f, 0xa2, 0xb7]),
+        expect: Buffer.from([0xa1, 0xc1]),
+      },
+      {
+        enable: true,
+        contents: Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xb7]),
+        expect: Buffer.from([0xa1, 0xc1, 0xa1, 0xc1, 0xa2, 0xb7]),
+      },
+      {
+        enable: false,
+        contents: Buffer.from([0x8f, 0xa2, 0xb7]),
+        expect: Buffer.from([0x8f, 0xa2, 0xb7]),
+      },
+    ];
+
+    testCase.forEach((test) => {
+      integrationTest(test.enable, test.contents, test.expect);
+    });
+
+  });
 
   /**
    * 拡張機能の動作設定(ID: waveDashUnify.enable)の値を返す関数をテストする
@@ -107,7 +164,7 @@ suite("Extension Test Suite", () => {
     contents.forEach((content) => {
       assert.strictEqual(
         extension
-          .replaceFullWidthTildeToWaveDash(content.before)
+          .replaceFullWidthTildeToWaveDashInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
         `content: ${content.before.toString("hex")}`
