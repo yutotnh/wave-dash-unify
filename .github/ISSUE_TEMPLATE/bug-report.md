@@ -1,10 +1,9 @@
 ---
 name: Bug report
 about: 改善のためのレポートを作成する
-title: 'Bug: '
+title: "Bug: "
 labels: bug
 assignees: yutotnh
-
 ---
 
 ## バグの説明
@@ -23,6 +22,7 @@ assignees: yutotnh
 - OS Version:
 
 ## その他
+
 <!--
 追記したい場合はこちらに記入してください。
 -->
