@@ -15,21 +15,21 @@ suite("Extension Test Suite", () => {
    * 統合テスト
    */
   test("replace full-width tilde to wave dash 2", async () => {
-
     /**
      * 統合テスト
      */
-    async function integrationTest(enable: boolean, contents: Buffer, expect: Buffer) {
+    async function integrationTest(
+      enable: boolean,
+      contents: Buffer,
+      expect: Buffer
+    ) {
       // HACK 設定を意図的に有効にしないと、テストが失敗するため、設定を有効にする
       const config = vscode.workspace.getConfiguration("waveDashUnify");
       await config.update("enable", enable, vscode.ConfigurationTarget.Global);
 
       const tmpFile = tmp.fileSync();
 
-      fs.writeFileSync(
-        tmpFile.name,
-        contents
-      );
+      fs.writeFileSync(tmpFile.name, contents);
 
       extension.replaceFullWidthTildeToWaveDash(tmpFile.name);
 
@@ -63,7 +63,6 @@ suite("Extension Test Suite", () => {
     testCase.forEach((test) => {
       integrationTest(test.enable, test.contents, test.expect);
     });
-
   });
 
   /**
