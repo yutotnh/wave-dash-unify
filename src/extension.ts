@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
+import * as encoding from "encoding-japanese";
 
 export function activate(context: vscode.ExtensionContext) {
 	// ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
-	vscode.workspace.onDidSaveTextDocument((document) => {
+	const disposable = vscode.workspace.onDidSaveTextDocument((document) => {
 		if (!isEnabled()) { return; }
 
 		const filePath = document.uri.fsPath;
@@ -21,6 +22,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 		fs.writeFileSync(filePath, convertedString, { flag: "w" });
 	});
+
+	context.subscriptions.push(disposable);
 }
 
 /**
@@ -43,8 +46,6 @@ export function isEnabled(): boolean {
  * @returns `true`: EUC-JP, `false`: EUC-JP以外
  */
 export function isEUCJP(str: Buffer): boolean {
-	const encoding = require("encoding-japanese");
-
 	return encoding.detect(str, "EUCJP") === "EUCJP";
 }
 
@@ -58,7 +59,7 @@ export function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
 	const fullWidthTilde = Buffer.from([0x8F, 0xA2, 0xB7]);
 	const waveDash = Buffer.from([0xA1, 0xC1]);
 
-	let convertedString: number[] = new Array(str.length);
+	const convertedString: number[] = new Array(str.length);
 	let convertedStringIndex = 0;
 
 	for (let i = 0; i < str.length; i++) {
@@ -77,6 +78,3 @@ export function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
 
 	return Buffer.from(convertedString.slice(0, convertedStringIndex));
 }
-
-// This method is called when your extension is deactivated
-export function deactivate() { }
