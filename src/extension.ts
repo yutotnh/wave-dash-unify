@@ -5,31 +5,39 @@ import * as encoding from "encoding-japanese";
 export function activate(context: vscode.ExtensionContext) {
   // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
   const disposable = vscode.workspace.onDidSaveTextDocument((document) => {
-    if (!isEnabled()) {
-      return;
-    }
-
-    const filePath = document.uri.fsPath;
-
-    const content = fs.readFileSync(filePath);
-
-    if (!isEUCJP(content)) {
-      return;
-    }
-
-    const convertedString = replaceFullWidthTildeToWaveDash(content);
-
-    // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
-    // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
-    // TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
-    if (Buffer.compare(convertedString, content) === 0) {
-      return;
-    }
-
-    fs.writeFileSync(filePath, convertedString, { flag: "w" });
+    replaceFullWidthTildeToWaveDash(document.fileName);
   });
 
   context.subscriptions.push(disposable);
+}
+
+/**
+ * 与えられた文字列中の全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変換する
+ *
+ * @param filePath 変換対象のファイルのパス
+ * @returns 変換後の文字列
+ */
+export function replaceFullWidthTildeToWaveDash(filePath: string) {
+  if (!isEnabled()) {
+    return;
+  }
+
+  const content = fs.readFileSync(filePath);
+
+  if (!isEUCJP(content)) {
+    return;
+  }
+
+  const convertedString = replaceFullWidthTildeToWaveDashInBuffer(content);
+
+  // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
+  // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
+  // TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
+  if (Buffer.compare(convertedString, content) === 0) {
+    return;
+  }
+
+  fs.writeFileSync(filePath, convertedString, { flag: "w" });
 }
 
 /**
@@ -61,7 +69,7 @@ export function isEUCJP(str: Buffer): boolean {
  * @param str 変換したい文字列
  * @returns 変換後の文字列
  */
-export function replaceFullWidthTildeToWaveDash(str: Buffer): Buffer {
+export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
   const fullWidthTilde = Buffer.from([0x8f, 0xa2, 0xb7]);
   const waveDash = Buffer.from([0xa1, 0xc1]);
 
