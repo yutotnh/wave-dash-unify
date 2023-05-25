@@ -9,7 +9,24 @@ on:
       - "main"
 
 jobs:
-  devcontainer:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+      - name: Install Dev Container CLI
+        run: npm install -g @devcontainers/cli
+      - name: Building image
+        run: devcontainer build --workspace-folder .
+      - name: Spins up containers
+        run: devcontainer up --workspace-folder .
+
+  test:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
