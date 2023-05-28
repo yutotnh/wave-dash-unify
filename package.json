@@ -2,7 +2,7 @@
   "name": "wave-dash-unify",
   "displayName": "Wave Dash Unify",
   "description": "Automatically converts both FULLWIDTH TILDE and WAVE DASH characters to the WAVE DASH character",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "yutotnh",
   "engines": {
     "vscode": "^1.78.0"
