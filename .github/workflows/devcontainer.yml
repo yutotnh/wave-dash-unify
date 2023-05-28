@@ -24,23 +24,10 @@ jobs:
         run: devcontainer build --workspace-folder .
       - name: Spins up containers
         run: devcontainer up --workspace-folder .
-
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16.x
-      - name: Install Dev Container CLI
-        run: npm install -g @devcontainers/cli
-      - name: Spins up containers
-        run: devcontainer up --workspace-folder .
-      - run: devcontainer exec --workspace-folder . yarn install
-      - run: devcontainer exec --workspace-folder . xvfb-run -a yarn test
+      - name: Install all dependencies
+        run: devcontainer exec --workspace-folder . yarn install
+      - name: Execute a test
+        run: devcontainer exec --workspace-folder . xvfb-run -a yarn test
         if: runner.os == 'Linux'
       - run: devcontainer exec --workspace-folder . yarn test
         if: runner.os != 'Linux'
