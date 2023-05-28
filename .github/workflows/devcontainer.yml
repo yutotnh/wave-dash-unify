@@ -1,4 +1,4 @@
-name: "Dev Containers Test"
+name: "Dev Containers"
 
 on:
   push:
