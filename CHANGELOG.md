@@ -6,6 +6,56 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.3]
+
+## What's Changed
+
+### Exciting New Features 🎉
+
+* update: v0.0.3のリリースに必要な変更を行った by @yutotnh in <https://github.com/yutotnh/wave-dash-unify/pull/85>
+
+### Other Changes
+
+* fix: 存在しないvsixファイルを添付しようとしていたので、vsixファイルを生成するようにした by @yutotnh in <https://github.com/yutotnh/wave-dash-unify/pull/35>
+* build(deps-dev): bump @types/node from 20.2.4 to 20.2.5 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/37>
+* build(deps-dev): bump eslint from 8.40.0 to 8.41.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/36>
+* build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.59.7 to 5.59.8 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/39>
+* build(deps-dev): bump @typescript-eslint/parser from 5.59.7 to 5.59.8 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/38>
+* build(deps-dev): bump webpack from 5.84.1 to 5.85.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/40>
+* build(deps-dev): bump typescript from 5.0.4 to 5.1.3 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/41>
+* build(deps-dev): bump webpack-cli from 5.1.1 to 5.1.3 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/42>
+* build(deps-dev): bump eslint from 8.41.0 to 8.42.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/43>
+* build(deps-dev): bump @typescript-eslint/parser from 5.59.8 to 5.59.9 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/44>
+* build(deps-dev): bump webpack from 5.85.0 to 5.85.1 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/46>
+* build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.59.8 to 5.59.9 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/45>
+* build(deps-dev): bump webpack-cli from 5.1.3 to 5.1.4 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/48>
+* build(deps-dev): bump webpack from 5.85.1 to 5.86.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/49>
+* build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.59.9 to 5.59.11 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/54>
+* build(deps-dev): bump @types/node from 20.2.5 to 20.3.1 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/53>
+* build(deps-dev): bump @vscode/test-electron from 2.3.2 to 2.3.3 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/52>
+* build(deps-dev): bump @typescript-eslint/parser from 5.59.9 to 5.59.11 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/55>
+* build(deps-dev): bump webpack from 5.86.0 to 5.87.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/57>
+* build(deps-dev): bump eslint from 8.42.0 to 8.43.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/58>
+* build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.59.11 to 5.60.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/60>
+* build(deps-dev): bump @typescript-eslint/parser from 5.59.11 to 5.60.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/59>
+* build(deps-dev): bump webpack from 5.87.0 to 5.88.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/62>
+* build(deps-dev): bump @typescript-eslint/parser from 5.60.0 to 5.60.1 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/63>
+* build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.60.0 to 5.60.1 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/65>
+* build(deps-dev): bump @types/node from 20.3.1 to 20.3.2 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/64>
+* build(deps-dev): bump typescript from 5.1.3 to 5.1.5 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/67>
+* build(deps-dev): bump typescript from 5.1.5 to 5.1.6 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/68>
+* build(deps-dev): bump ts-loader from 9.4.3 to 9.4.4 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/69>
+* build(deps-dev): bump webpack from 5.88.0 to 5.88.1 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/70>
+* build(deps-dev): bump eslint from 8.43.0 to 8.44.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/71>
+* build(deps): bump semver from 5.7.1 to 5.7.2 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/80>
+* build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.60.1 to 5.62.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/78>
+* build(deps-dev): bump @types/node from 20.3.2 to 20.4.2 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/79>
+* build(deps-dev): bump @typescript-eslint/parser from 5.60.1 to 5.62.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/82>
+* build(deps-dev): bump eslint from 8.44.0 to 8.45.0 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/83>
+* build(deps-dev): bump webpack from 5.88.1 to 5.88.2 by @dependabot in <https://github.com/yutotnh/wave-dash-unify/pull/84>
+
+**Full Changelog**: <https://github.com/yutotnh/wave-dash-unify/compare/v0.0.2...v0.0.3>
+
 ## [0.0.2]
 
 ### Exciting New Features 🎉
