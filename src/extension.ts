@@ -82,7 +82,7 @@ export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
       i + fullWidthTilde.length - 1 < str.length &&
       Buffer.compare(
         str.slice(i, i + fullWidthTilde.length),
-        fullWidthTilde
+        fullWidthTilde,
       ) === 0
     ) {
       convertedString[convertedStringIndex++] = waveDash[0];
