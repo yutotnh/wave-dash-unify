@@ -27,14 +27,14 @@ suite("Extension Test Suite", () => {
       enable: boolean,
       contents: Buffer,
       insert: string,
-      expect: Buffer
+      expect: Buffer,
     ) {
       const waveDashUnifyConfig =
         vscode.workspace.getConfiguration("waveDashUnify");
       await waveDashUnifyConfig.update(
         "enable",
         enable,
-        vscode.ConfigurationTarget.Global
+        vscode.ConfigurationTarget.Global,
       );
 
       const tmpFile = tmp.fileSync();
@@ -46,7 +46,7 @@ suite("Extension Test Suite", () => {
       await fileConfig.update(
         "autoGuessEncoding",
         true,
-        vscode.ConfigurationTarget.Global
+        vscode.ConfigurationTarget.Global,
       );
 
       // ファイル保存後にイベントが発火して、全角チルダが波ダッシュに変換されることを確認するために、
@@ -71,7 +71,7 @@ suite("Extension Test Suite", () => {
         enable: ${enable}
         before: ${contents.toString("hex")}
         insert: ${insert}
-        after :  ${actual.toString("hex")}`
+        after :  ${actual.toString("hex")}`,
       );
     }
 
@@ -105,7 +105,7 @@ suite("Extension Test Suite", () => {
         test.enable,
         test.contents,
         test.insert,
-        test.expect
+        test.expect,
       );
     }
   });
@@ -147,7 +147,7 @@ suite("Extension Test Suite", () => {
       assert.strictEqual(
         extension.isEUCJP(content),
         true,
-        `content: ${content.toString("hex")}`
+        `content: ${content.toString("hex")}`,
       );
     });
 
@@ -171,7 +171,7 @@ suite("Extension Test Suite", () => {
       assert.strictEqual(
         extension.isEUCJP(content),
         false,
-        `content: ${content.toString("hex")}`
+        `content: ${content.toString("hex")}`,
       );
     });
   });
@@ -214,7 +214,7 @@ suite("Extension Test Suite", () => {
           .replaceFullWidthTildeToWaveDashInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
-        `content: ${content.before.toString("hex")}`
+        `content: ${content.before.toString("hex")}`,
       );
     });
   });
