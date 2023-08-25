@@ -14,20 +14,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install Node.js
-        uses: actions/setup-node@v3
+
+      - name: Build and run dev container task
+        uses: devcontainers/ci@v0.3
         with:
-          node-version: 16.x
-      - name: Install Dev Container CLI
-        run: npm install -g @devcontainers/cli
-      - name: Building image
-        run: devcontainer build --workspace-folder .
-      - name: Spins up containers
-        run: devcontainer up --workspace-folder .
-      - name: Install all dependencies
-        run: devcontainer exec --workspace-folder . yarn install
-      - name: Execute a test
-        run: devcontainer exec --workspace-folder . xvfb-run -a yarn test
-        if: runner.os == 'Linux'
-      - run: devcontainer exec --workspace-folder . yarn test
-        if: runner.os != 'Linux'
+          push: never
+          runCmd: |
+            # In runCmd, processing continues except for the last command, even if the exit status is not 0.
+            set -e
+
+            # Install dependencies
+            yarn install
+
+            # Execute a test
+            xvfb-run -a yarn test
