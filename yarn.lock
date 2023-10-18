@@ -134,10 +134,10 @@
   resolved "https://registry.yarnpkg.com/@tootallnate/once/-/once-1.1.2.tgz#ccb91445360179a04e7fe6aff78c00ffc1eeaf82"
   integrity sha512-RbzJvlNzmRq5c3O09UipeuXno4tA1FE6ikOjxZK0tuxVv3412l64l5t1W5pj4+rJq9vpkm/kwiR07aZXnsKPxw==
 
-"@types/encoding-japanese@^2.0.2":
-  version "2.0.2"
-  resolved "https://registry.yarnpkg.com/@types/encoding-japanese/-/encoding-japanese-2.0.2.tgz#d6cd6fe2460fa067fd018ce76837201f55c40b80"
-  integrity sha512-ErppTpveRHaHa7WIYZrHMZaaOJvy3u1ZiRTNTmx6h40mnnqa99s62XSUgzN50mQ3Ifea2MrliKHQC5ThJxjCVQ==
+"@types/encoding-japanese@^2.0.3":
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/@types/encoding-japanese/-/encoding-japanese-2.0.3.tgz#e710785f302d664727bd81bcef4b3449f17de5fc"
+  integrity sha512-D5KvWowkeFUruTEAqX8kNdGAiRWgBqIWeCYFGP/84QQY33g7E6Zc1tXZ9C0babiIr7sShRmRoUdUVfGNNbhB5Q==
 
 "@types/eslint-scope@^3.7.3":
   version "3.7.4"
