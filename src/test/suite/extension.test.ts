@@ -322,6 +322,9 @@ suite("Extension Test Suite", () => {
       expectedEnableStatusIcon,
     );
 
+    const expectedEnableStatusTooltip = "Wave Dash Unify is enabled";
+    assert.strictEqual(statusBarItem.tooltip, expectedEnableStatusTooltip);
+
     // 拡張機能の動作設定(ID: waveDashUnify.enable)がfalseのとき、先頭に"$(error)"が表示されることを確認する
     await config.update("enable", false, vscode.ConfigurationTarget.Global);
 
@@ -333,6 +336,9 @@ suite("Extension Test Suite", () => {
       true,
       expectedDisableStatusIcon,
     );
+
+    const expectedDisableStatusTooltip = "Wave Dash Unify is disabled";
+    assert.strictEqual(statusBarItem.tooltip, expectedDisableStatusTooltip);
   });
 
   /**
