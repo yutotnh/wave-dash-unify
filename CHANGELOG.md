@@ -18,7 +18,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - fix: 存在しない vsix ファイルを添付しようとしていたので、vsix ファイルを生成するようにした by [@yutotnh](https://github.com/yutotnh) in [#35](https://github.com/yutotnh/wave-dash-unify/pull/35)
 - build(deps-dev): bump @types/node from 20.2.4 to 20.2.5 by [@dependabot](https://github.com/apps/dependabot) in [#37](https://github.com/yutotnh/wave-dash-unify/pull/37)
-- build(deps-dev): bump eslint from 8.40.0 to 8.41.0 by [@dependabot](https://github.com/apps/dependabot) in [36](https://github.com/yutotnh/wave-dash-unify/pull/36)
+- build(deps-dev): bump eslint from 8.40.0 to 8.41.0 by [@dependabot](https://github.com/apps/dependabot) in [#36](https://github.com/yutotnh/wave-dash-unify/pull/36)
 - build(deps-dev): bump @typescript-eslint/eslint-plugin from 5.59.7 to 5.59.8 by [@dependabot](https://github.com/apps/dependabot) in [#39](https://github.com/yutotnh/wave-dash-unify/pull/39)
 - build(deps-dev): bump @typescript-eslint/parser from 5.59.7 to 5.59.8 by [@dependabot](https://github.com/apps/dependabot) in [#38](https://github.com/yutotnh/wave-dash-unify/pull/38)
 - build(deps-dev): bump webpack from 5.84.1 to 5.85.0 by [@dependabot](https://github.com/apps/dependabot) in [#40](https://github.com/yutotnh/wave-dash-unify/pull/40)
