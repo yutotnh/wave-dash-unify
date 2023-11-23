@@ -218,4 +218,165 @@ suite("Extension Test Suite", () => {
       );
     });
   });
+
+  /**
+   * 全角チルダと波ダッシュの個数をカウントする関数をテストする
+   */
+  test("count full-width tilde and wave dash", () => {
+    const waveDashCodePoint = 0x301c;
+    const fullWidthTildeCodePoint = 0xff5e;
+
+    const contents = [
+      // 全角チルダのみ
+      // 文字列: "～"
+      {
+        string: String.fromCodePoint(fullWidthTildeCodePoint),
+        count: 1,
+      },
+      // 文字列: "～～"
+      {
+        string: String.fromCodePoint(fullWidthTildeCodePoint).repeat(2),
+        count: 2,
+      },
+      // 全角チルダの前後にASCII文字
+      // 文字列: "1～～2"
+      {
+        string:
+          "1" + String.fromCodePoint(fullWidthTildeCodePoint).repeat(2) + "2",
+        count: 2,
+      },
+      // 波ダッシュのみ
+      // 文字列: "～"
+      {
+        string: String.fromCodePoint(waveDashCodePoint),
+        count: 1,
+      },
+      // 文字列: "～～"
+      {
+        string: String.fromCodePoint(waveDashCodePoint).repeat(2),
+        count: 2,
+      },
+      // 波ダッシュの前後にASCII文字
+      // 文字列: "1～～2"
+      {
+        string: "1" + String.fromCodePoint(waveDashCodePoint).repeat(2) + "2",
+        count: 2,
+      },
+      // 全角チルダと波ダッシュの混在
+      // 文字列: "～～～～"
+      {
+        string:
+          String.fromCodePoint(fullWidthTildeCodePoint).repeat(2) +
+          String.fromCodePoint(waveDashCodePoint).repeat(2),
+        count: 4,
+      },
+      // 全角チルダと波ダッシュがない文字列
+      // 文字列: "あ"
+      {
+        string: "あ",
+        count: 0,
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension.countFullWidthTildeAndWaveDash(content.string),
+        content.count,
+        `content: ${content.string}`,
+      );
+    });
+  });
+
+  /**
+   * ステータスバーの初期化を行う関数をテストする
+   * NOTE: テスト対象のsetupStatusBarItem()はグローバル変数の初期化を行う関数なのでテストしない
+   */
+
+  /**
+   * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効を表示する関数をテストする
+   */
+  test("update status bar item", async () => {
+    // アクティブなテキストエディタを作り、そのテキストエディタのステータスバーに表示される項目を取得する
+    const document = await vscode.workspace.openTextDocument({
+      language: "plaintext",
+      content: "",
+    });
+
+    await vscode.window.showTextDocument(document);
+
+    const statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+    );
+
+    const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+    // 拡張機能の動作設定(ID: waveDashUnify.enable)がtrueのとき、先頭に"$(pass)"が表示されることを確認する"
+    await config.update("enable", true, vscode.ConfigurationTarget.Global);
+
+    extension.updateStatusBarItem(statusBarItem);
+
+    const expectedEnableStatusIcon = "$(pass)";
+    assert.strictEqual(
+      statusBarItem.text.startsWith(expectedEnableStatusIcon),
+      true,
+      expectedEnableStatusIcon,
+    );
+
+    // 拡張機能の動作設定(ID: waveDashUnify.enable)がfalseのとき、先頭に"$(error)"が表示されることを確認する
+    await config.update("enable", false, vscode.ConfigurationTarget.Global);
+
+    extension.updateStatusBarItem(statusBarItem);
+
+    const expectedDisableStatusIcon = "$(error)";
+    assert.strictEqual(
+      statusBarItem.text.startsWith(expectedDisableStatusIcon),
+      true,
+      expectedDisableStatusIcon,
+    );
+  });
+
+  /**
+   * アクティブなテキストエディタがファイルではない場合は、ステータスバーの表示領域のスペースを空けるために非表示にする関数をテストする
+   * NOTE: StatusBarItem.show()とStatusBarItem.hide()を実行したことの確認はできないため、テストしない
+   */
+
+  /**
+   * 全角チルダと波ダッシュの個数を数えた数がステータスバーに表示されることを確認する
+   */
+  test("count full-width tilde and wave dash in active text editor", async () => {
+    const waveDashCodePoint = 0x301c;
+    const fullWidthTildeCodePoint = 0xff5e;
+
+    const waveDashCount = 3;
+    const fullWidthTildeCount = 2;
+
+    // アクティブなテキストエディタを作り、そのテキストエディタのステータスバーに表示される項目を取得する
+    const document = await vscode.workspace.openTextDocument({
+      language: "plaintext",
+      content:
+        String.fromCodePoint(fullWidthTildeCodePoint).repeat(
+          fullWidthTildeCount,
+        ) + String.fromCodePoint(waveDashCodePoint).repeat(waveDashCount),
+    });
+
+    await vscode.window.showTextDocument(document);
+
+    const statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+    );
+
+    // NOTE: このテストでは拡張機能の動作設定(ID: waveDashUnify.enable)の値は関係ないが、
+    //       ステータスバーに表示される文字列が正しいことを確認するために、
+    //       拡張機能の動作設定(ID: waveDashUnify.enable)の値をtrueにする
+    const config = vscode.workspace.getConfiguration("waveDashUnify");
+    await config.update("enable", true, vscode.ConfigurationTarget.Global);
+
+    extension.updateStatusBarItem(statusBarItem);
+
+    const count = waveDashCount + fullWidthTildeCount;
+    const expectedText = `$(pass) 全角チルダ・波ダッシュ: ${count}`;
+
+    // ステータスバーに表示される文字列が正しいことを確認する
+    assert.strictEqual(statusBarItem.text, expectedText);
+  });
 });
