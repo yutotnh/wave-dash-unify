@@ -94,7 +94,7 @@ export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
       i + fullWidthTilde.length - 1 < str.length &&
       Buffer.compare(
         str.slice(i, i + fullWidthTilde.length),
-        fullWidthTilde
+        fullWidthTilde,
       ) === 0
     ) {
       convertedString[convertedStringIndex++] = waveDash[0];
@@ -115,7 +115,7 @@ export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
 export function setupStatusBarItem() {
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
-    100 // TODO この値は適当
+    100, // TODO この値は適当
   );
 
   statusBarItem.name = "waveDashUnify";
@@ -174,7 +174,7 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   statusBarItem.tooltip = tooltip;
 
   const count = countFullWidthTildeAndWaveDash(
-    vscode.window.activeTextEditor?.document.getText() ?? ""
+    vscode.window.activeTextEditor?.document.getText() ?? "",
   );
 
   statusBarItem.text = `${
