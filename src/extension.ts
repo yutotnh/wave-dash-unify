@@ -2,13 +2,28 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as encoding from "encoding-japanese";
 
+let statusBarItem: vscode.StatusBarItem;
+
 export function activate(context: vscode.ExtensionContext) {
   // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
   const disposable = vscode.workspace.onDidSaveTextDocument((document) => {
     replaceFullWidthTildeToWaveDash(document.fileName);
   });
 
+  // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
+  vscode.window.onDidChangeActiveTextEditor(() => {
+    updateStatusBarItem(statusBarItem);
+  });
+  vscode.workspace.onDidChangeTextDocument(() => {
+    updateStatusBarItem(statusBarItem);
+  });
+  vscode.workspace.onDidChangeConfiguration(() => {
+    updateStatusBarItem(statusBarItem);
+  });
+
   context.subscriptions.push(disposable);
+
+  setupStatusBarItem();
 }
 
 /**
@@ -95,4 +110,76 @@ export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
   }
 
   return Buffer.from(convertedString.slice(0, convertedStringIndex));
+}
+
+/**
+ * ステータスバーにWaveDashUnifyの状態を表示する
+ */
+export function setupStatusBarItem() {
+  statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+  );
+
+  statusBarItem.name = "Wave Dash Unify";
+
+  updateStatusBarItem(statusBarItem);
+}
+
+/**
+ * 全角チルダと波ダッシュの個数を数える
+ * @param str 文字列
+ * @returns 全角チルダと波ダッシュの個数
+ */
+export function countFullWidthTildeAndWaveDash(str: string): number {
+  const waveDashCodePoint = 0x301c;
+  const fullWidthTildeCodePoint = 0xff5e;
+
+  let count = 0;
+  for (let i = 0; i < str.length; i++) {
+    if (
+      str.codePointAt(i) === waveDashCodePoint ||
+      str.codePointAt(i) === fullWidthTildeCodePoint
+    ) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効を表示する
+ *
+ * @param statusBarItem ステータスバーに表示する項目
+ */
+export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
+  // アクティブなテキストエディタがファイルではない場合は
+  // 全角チルダと波ダッシュの個数を表示しても意味がないので、
+  // ステータスバーの表示領域のスペースを空けるために非表示にする
+  if (!vscode.window.activeTextEditor) {
+    statusBarItem.hide();
+    return;
+  }
+
+  statusBarItem.show();
+
+  let tooltip = "";
+
+  // ステータスバーに表示するアイコンだと何を表しているのか伝わりにくいので、
+  // ツールチップで有効/無効を説明する
+  if (isEnabled()) {
+    tooltip = "Wave Dash Unify is enabled";
+  } else {
+    tooltip = "Wave Dash Unify is disabled";
+  }
+
+  statusBarItem.tooltip = tooltip;
+
+  const count = countFullWidthTildeAndWaveDash(
+    vscode.window.activeTextEditor?.document.getText() ?? "",
+  );
+
+  statusBarItem.text = `${
+    isEnabled() ? "$(pass)" : "$(error)"
+  } 全角チルダ・波ダッシュ: ${count}`;
 }
