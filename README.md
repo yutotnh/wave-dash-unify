@@ -39,7 +39,7 @@ sequenceDiagram
 
 ## Extension Settings
 
-- `waveDashUnify.enable`: Enable Wave Dash Unify
+- `waveDashUnify.enableConvert`: Enable convert to wave dash to fullwidth tilde
 
 ## Known Issues
 
