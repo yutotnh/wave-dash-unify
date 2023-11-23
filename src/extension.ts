@@ -118,7 +118,6 @@ export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
 export function setupStatusBarItem() {
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
-    100, // TODO この値は適当
   );
 
   statusBarItem.name = "Wave Dash Unify";
