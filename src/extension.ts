@@ -17,6 +17,9 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.workspace.onDidChangeTextDocument(() => {
     updateStatusBarItem(statusBarItem);
   });
+  vscode.workspace.onDidChangeConfiguration(() => {
+    updateStatusBarItem(statusBarItem);
+  });
 
   context.subscriptions.push(disposable);
 
