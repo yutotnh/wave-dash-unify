@@ -25,13 +25,23 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "waveDashUnify.enableConvert",
+        "title": "Wave Dash Unify: Enable convert to wave dash to fullwidth tilde"
+      },
+      {
+        "command": "waveDashUnify.disableConvert",
+        "title": "Wave Dash Unify: Disable convert to wave dash to fullwidth tilde"
+      }
+    ],
     "configuration": {
       "title": "Wave Dash Unify",
       "properties": {
-        "waveDashUnify.enable": {
+        "waveDashUnify.enableConvert": {
           "type": "boolean",
           "default": true,
-          "description": "Enable Wave Dash Unify"
+          "description": "Enable convert to wave dash to fullwidth tilde"
         }
       }
     }
