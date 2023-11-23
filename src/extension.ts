@@ -179,5 +179,5 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   statusBarItem.text = `${
     isEnabled() ? "$(pass)" : "$(error)"
-  }: 全角チルダ・波ダッシュ: ${count}`;
+  } 全角チルダ・波ダッシュ: ${count}`;
 }
