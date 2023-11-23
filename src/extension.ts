@@ -118,7 +118,7 @@ export function setupStatusBarItem() {
     100, // TODO この値は適当
   );
 
-  statusBarItem.name = "waveDashUnify";
+  statusBarItem.name = "Wave Dash Unify";
 
   updateStatusBarItem(statusBarItem);
 }
