@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((document) => {
-      replaceFullWidthTildeToWaveDash(document.fileName);
+      replaceFullwidthTildeToWaveDash(document.fileName);
     }),
   );
 
@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
  * @param filePath 変換対象のファイルのパス
  * @returns 変換後の文字列
  */
-export function replaceFullWidthTildeToWaveDash(filePath: string) {
+export function replaceFullwidthTildeToWaveDash(filePath: string) {
   if (!isConvertEnabled()) {
     return;
   }
@@ -66,7 +66,7 @@ export function replaceFullWidthTildeToWaveDash(filePath: string) {
     return;
   }
 
-  const convertedString = replaceFullWidthTildeToWaveDashInBuffer(content);
+  const convertedString = replaceFullwidthTildeToWaveDashInBuffer(content);
 
   // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
   // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
@@ -107,8 +107,8 @@ export function isEUCJP(str: Buffer): boolean {
  * @param str 変換したい文字列
  * @returns 変換後の文字列
  */
-export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
-  const fullWidthTilde = Buffer.from([0x8f, 0xa2, 0xb7]);
+export function replaceFullwidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
+  const fullwidthTilde = Buffer.from([0x8f, 0xa2, 0xb7]);
   const waveDash = Buffer.from([0xa1, 0xc1]);
 
   const convertedString: number[] = new Array(str.length);
@@ -117,16 +117,16 @@ export function replaceFullWidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
   for (let i = 0; i < str.length; i++) {
     // 変換したい元の文字列が3byteなので、現在の1byteに加えて2byte以上先があるときだけ変換を行う
     if (
-      i + fullWidthTilde.length - 1 < str.length &&
+      i + fullwidthTilde.length - 1 < str.length &&
       Buffer.compare(
-        str.slice(i, i + fullWidthTilde.length),
-        fullWidthTilde,
+        str.slice(i, i + fullwidthTilde.length),
+        fullwidthTilde,
       ) === 0
     ) {
       convertedString[convertedStringIndex++] = waveDash[0];
       convertedString[convertedStringIndex++] = waveDash[1];
 
-      i += fullWidthTilde.length - 1;
+      i += fullwidthTilde.length - 1;
     } else {
       convertedString[convertedStringIndex++] = str[i];
     }
@@ -153,15 +153,15 @@ export function setupStatusBarItem() {
  * @param str 文字列
  * @returns 全角チルダと波ダッシュの個数
  */
-export function countFullWidthTildeAndWaveDash(str: string): number {
+export function countFullwidthTildeAndWaveDash(str: string): number {
   const waveDashCodePoint = 0x301c;
-  const fullWidthTildeCodePoint = 0xff5e;
+  const fullwidthTildeCodePoint = 0xff5e;
 
   let count = 0;
   for (let i = 0; i < str.length; i++) {
     if (
       str.codePointAt(i) === waveDashCodePoint ||
-      str.codePointAt(i) === fullWidthTildeCodePoint
+      str.codePointAt(i) === fullwidthTildeCodePoint
     ) {
       count++;
     }
@@ -198,7 +198,7 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   statusBarItem.tooltip = tooltip;
 
-  const count = countFullWidthTildeAndWaveDash(
+  const count = countFullwidthTildeAndWaveDash(
     vscode.window.activeTextEditor?.document.getText() ?? "",
   );
 
