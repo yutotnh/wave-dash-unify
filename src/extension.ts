@@ -5,10 +5,35 @@ import * as encoding from "encoding-japanese";
 let statusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand("waveDashUnify.enableConvert", async () => {
+      await vscode.workspace
+        .getConfiguration("waveDashUnify")
+        .update("enableConvert", true, true);
+
+      updateStatusBarItem(statusBarItem);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "waveDashUnify.disableConvert",
+      async () => {
+        await vscode.workspace
+          .getConfiguration("waveDashUnify")
+          .update("enableConvert", false, true);
+
+        updateStatusBarItem(statusBarItem);
+      },
+    ),
+  );
+
   // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
-  const disposable = vscode.workspace.onDidSaveTextDocument((document) => {
-    replaceFullWidthTildeToWaveDash(document.fileName);
-  });
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      replaceFullWidthTildeToWaveDash(document.fileName);
+    }),
+  );
 
   // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
   vscode.window.onDidChangeActiveTextEditor(() => {
@@ -21,8 +46,6 @@ export function activate(context: vscode.ExtensionContext) {
     updateStatusBarItem(statusBarItem);
   });
 
-  context.subscriptions.push(disposable);
-
   setupStatusBarItem();
 }
 
@@ -33,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
  * @returns 変換後の文字列
  */
 export function replaceFullWidthTildeToWaveDash(filePath: string) {
-  if (!isEnabled()) {
+  if (!isConvertEnabled()) {
     return;
   }
 
@@ -56,14 +79,14 @@ export function replaceFullWidthTildeToWaveDash(filePath: string) {
 }
 
 /**
- * 拡張機能の動作設定(ID: waveDashUnify.enable)の値を返す
+ * 拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値を返す
  *
  * @returns `true`: 拡張機能の動作が有効, `false`: 拡張機能の動作が無効
  */
-export function isEnabled(): boolean {
+export function isConvertEnabled(): boolean {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-  return config.get("enable") as boolean;
+  return config.get("enableConvert") as boolean;
 }
 
 /**
@@ -167,7 +190,7 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   // ステータスバーに表示するアイコンだと何を表しているのか伝わりにくいので、
   // ツールチップで有効/無効を説明する
-  if (isEnabled()) {
+  if (isConvertEnabled()) {
     tooltip = "Wave Dash Unify is enabled";
   } else {
     tooltip = "Wave Dash Unify is disabled";
@@ -180,6 +203,6 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   );
 
   statusBarItem.text = `${
-    isEnabled() ? "$(pass)" : "$(error)"
+    isConvertEnabled() ? "$(pass)" : "$(error)"
   } 全角チルダ・波ダッシュ: ${count}`;
 }

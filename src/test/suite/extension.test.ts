@@ -18,13 +18,13 @@ suite("Extension Test Suite", () => {
     /**
      * VS Codeで実際にファイルを開いて保存する統合テスト
      *
-     * @param enable 拡張機能の動作設定(ID: waveDashUnify.enable)の値
+     * @param enableConvert 拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値
      * @param contents ファイルに書き込む内容
      * @param insert 挿入する文字列
      * @param expect ファイルに書き込まれた内容の期待値
      */
     async function integrationTest(
-      enable: boolean,
+      enableConvert: boolean,
       contents: Buffer,
       insert: string,
       expect: Buffer,
@@ -32,8 +32,8 @@ suite("Extension Test Suite", () => {
       const waveDashUnifyConfig =
         vscode.workspace.getConfiguration("waveDashUnify");
       await waveDashUnifyConfig.update(
-        "enable",
-        enable,
+        "enableConvert",
+        enableConvert,
         vscode.ConfigurationTarget.Global,
       );
 
@@ -54,7 +54,8 @@ suite("Extension Test Suite", () => {
       const document = await vscode.workspace.openTextDocument(tmpFile.name);
       const textEditor = await vscode.window.showTextDocument(document);
       if (!textEditor) {
-        return;
+        // ファイルを開くのに失敗したらテストを失敗させる
+        assert.fail();
       }
 
       await textEditor.edit((editBuilder: vscode.TextEditorEdit) => {
@@ -68,7 +69,7 @@ suite("Extension Test Suite", () => {
         actual.toString("hex"),
         expect.toString("hex"),
         `
-        enable: ${enable}
+        enableConvert: ${enableConvert}
         before: ${contents.toString("hex")}
         insert: ${insert}
         after :  ${actual.toString("hex")}`,
@@ -78,7 +79,7 @@ suite("Extension Test Suite", () => {
     const testCase = [
       {
         // EUC-JPと自動認識させるため、開くファイルを"ああああ"とした
-        enable: true,
+        enableConvert: true,
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
         insert: "～",
@@ -89,7 +90,7 @@ suite("Extension Test Suite", () => {
       },
       {
         // 拡張機能が無効だとファイルが変化しないことの確認
-        enable: false,
+        enableConvert: false,
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
         insert: "～",
@@ -102,7 +103,7 @@ suite("Extension Test Suite", () => {
 
     for (const test of testCase) {
       await integrationTest(
-        test.enable,
+        test.enableConvert,
         test.contents,
         test.insert,
         test.expect,
@@ -111,20 +112,52 @@ suite("Extension Test Suite", () => {
   });
 
   /**
-   * 拡張機能の動作設定(ID: waveDashUnify.enable)の値を返す関数をテストする
+   * 変換を有効にするコマンドをテストする
+   */
+  test("enable/disable convert", async () => {
+    const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+    // enableのテストをするために、一度falseにする
+    await config.update(
+      "enableConvert",
+      false,
+      vscode.ConfigurationTarget.Global,
+    );
+
+    await vscode.commands.executeCommand("waveDashUnify.enableConvert");
+
+    assert.strictEqual(extension.isConvertEnabled(), true);
+
+    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき
+
+    await vscode.commands.executeCommand("waveDashUnify.disableConvert");
+
+    assert.strictEqual(extension.isConvertEnabled(), false);
+  });
+
+  /**
+   * 拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値を返す関数をテストする
    */
   test("isEnabled", async () => {
     const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-    // 拡張機能の動作設定(ID: waveDashUnify.enable)がtrueのとき
-    await config.update("enable", true, vscode.ConfigurationTarget.Global);
+    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき
+    await config.update(
+      "enableConvert",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
 
-    assert.strictEqual(extension.isEnabled(), true);
+    assert.strictEqual(extension.isConvertEnabled(), true);
 
-    // 拡張機能の動作設定(ID: waveDashUnify.enable)がfalseのとき
-    await config.update("enable", false, vscode.ConfigurationTarget.Global);
+    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき
+    await config.update(
+      "enableConvert",
+      false,
+      vscode.ConfigurationTarget.Global,
+    );
 
-    assert.strictEqual(extension.isEnabled(), false);
+    assert.strictEqual(extension.isConvertEnabled(), false);
   });
 
   /**
@@ -140,7 +173,15 @@ suite("Extension Test Suite", () => {
 
       // 全角チルダの前にASCII文字
       // 文字列: "1～～"
-      Buffer.from([0x31, 0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xb7, 0x32]),
+      Buffer.from([0xad, 0xa1]),
+
+      // CP51932のテキスト
+      // 文字列: 髙
+      Buffer.from([0xfc, 0xe2, 0x0a]),
+
+      // CP51932のテキスト
+      // 文字列: ①
+      Buffer.from([0xad, 0xa1]),
     ];
 
     eucjpContents.forEach((content) => {
@@ -310,8 +351,12 @@ suite("Extension Test Suite", () => {
 
     const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-    // 拡張機能の動作設定(ID: waveDashUnify.enable)がtrueのとき、先頭に"$(pass)"が表示されることを確認する"
-    await config.update("enable", true, vscode.ConfigurationTarget.Global);
+    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき、先頭に"$(pass)"が表示されることを確認する"
+    await config.update(
+      "enableConvert",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
 
     extension.updateStatusBarItem(statusBarItem);
 
@@ -325,8 +370,12 @@ suite("Extension Test Suite", () => {
     const expectedEnableStatusTooltip = "Wave Dash Unify is enabled";
     assert.strictEqual(statusBarItem.tooltip, expectedEnableStatusTooltip);
 
-    // 拡張機能の動作設定(ID: waveDashUnify.enable)がfalseのとき、先頭に"$(error)"が表示されることを確認する
-    await config.update("enable", false, vscode.ConfigurationTarget.Global);
+    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき、先頭に"$(error)"が表示されることを確認する
+    await config.update(
+      "enableConvert",
+      false,
+      vscode.ConfigurationTarget.Global,
+    );
 
     extension.updateStatusBarItem(statusBarItem);
 
@@ -371,11 +420,15 @@ suite("Extension Test Suite", () => {
       vscode.StatusBarAlignment.Right,
     );
 
-    // NOTE: このテストでは拡張機能の動作設定(ID: waveDashUnify.enable)の値は関係ないが、
+    // NOTE: このテストでは拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値は関係ないが、
     //       ステータスバーに表示される文字列が正しいことを確認するために、
-    //       拡張機能の動作設定(ID: waveDashUnify.enable)の値をtrueにする
+    //       拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値をtrueにする
     const config = vscode.workspace.getConfiguration("waveDashUnify");
-    await config.update("enable", true, vscode.ConfigurationTarget.Global);
+    await config.update(
+      "enableConvert",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
 
     extension.updateStatusBarItem(statusBarItem);
 
