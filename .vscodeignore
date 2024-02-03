@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+.devcontainer/**
+.github/**
 out/**
 node_modules/**
 src/**
@@ -11,3 +13,5 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+.prettierignore
+doc/overwrite-error.png
