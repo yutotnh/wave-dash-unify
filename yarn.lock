@@ -1337,7 +1337,7 @@ cspell-trie-lib@8.6.1:
     "@cspell/cspell-types" "8.6.1"
     gensequence "^7.0.0"
 
-cspell@^8.3.2:
+cspell@^8.6.1:
   version "8.6.1"
   resolved "https://registry.yarnpkg.com/cspell/-/cspell-8.6.1.tgz#b3fd935c2bcbec64b47377a4de5b569ab50daa47"
   integrity sha512-/Qle15v4IQe7tViSWX0+RCZJ2HJ4HUCZV9Z4uOVasNUz+DWCrxysNR+pfCRYuLX/6lQdqCM9QCR9GZc7a2KIVA==
