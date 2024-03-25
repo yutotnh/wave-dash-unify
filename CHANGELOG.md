@@ -6,6 +6,74 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.1.1]
+
+## What's Changed
+
+### Exciting New Features 🎉
+
+- chore: パッケージの作成に必要のないファイルを除外する by @yutotnh in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/224)
+- test: スペルチェック機能を追加 by @yutotnh in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/232)
+- chore: テストで使用するnodeのバージョンを固定する by @yutotnh in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/252)
+- chore: パッケージに含めないファイルを追加 by @yutotnh in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/253)
+
+### Other Changes
+
+- build(deps-dev): bump @types/node from 20.9.4 to 20.9.5 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/187)
+- build(deps-dev): bump @vscode/test-electron from 2.3.7 to 2.3.8 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/189)
+- build(deps-dev): bump @types/node from 20.9.5 to 20.10.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/188)
+- build(deps-dev): bump @types/node from 20.10.0 to 20.10.1 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/190)
+- build(deps-dev): bump eslint-config-prettier from 9.0.0 to 9.1.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/191)
+- build(deps-dev): bump @types/node from 20.10.1 to 20.10.3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/192)
+- build(deps-dev): bump eslint from 8.54.0 to 8.55.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/193)
+- build(deps-dev): bump typescript from 5.3.2 to 5.3.3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/194)
+- build(deps-dev): bump @types/node from 20.10.3 to 20.10.4 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/195)
+- build(deps-dev): bump prettier from 3.1.0 to 3.1.1 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/197)
+- build(deps-dev): bump eslint from 8.55.0 to 8.56.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/200)
+- build(deps): bump github/codeql-action from 2 to 3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/198)
+- build(deps-dev): bump @types/node from 20.10.4 to 20.10.5 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/199)
+- build(deps-dev): bump @types/node from 20.10.5 to 20.10.6 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/201)
+- build(deps-dev): bump @types/node from 20.10.6 to 20.10.7 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/202)
+- build(deps-dev): bump @types/node from 20.10.7 to 20.10.8 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/203)
+- build(deps-dev): bump @types/node from 20.10.8 to 20.11.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/204)
+- build(deps-dev): bump prettier from 3.1.1 to 3.2.2 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/205)
+- build(deps-dev): bump @types/node from 20.11.0 to 20.11.3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/207)
+- build(deps-dev): bump @types/node from 20.11.3 to 20.11.4 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/209)
+- build(deps-dev): bump prettier from 3.2.2 to 3.2.4 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/211)
+- build(deps-dev): bump @types/node from 20.11.4 to 20.11.5 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/210)
+- build(deps): bump actions/dependency-review-action from 3 to 4 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/212)
+- build(deps-dev): bump webpack from 5.89.0 to 5.90.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/215)
+- build(deps-dev): bump @types/node from 20.11.5 to 20.11.6 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/214)
+- build(deps-dev): bump @vscode/test-electron from 2.3.8 to 2.3.9 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/213)
+- build(deps-dev): bump @types/node from 20.11.6 to 20.11.7 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/216)
+- build(deps-dev): bump @types/node from 20.11.7 to 20.11.10 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/218)
+- build(deps-dev): bump @vscode/vsce from 2.22.0 to 2.23.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/217)
+- build(deps-dev): bump @types/node from 20.11.10 to 20.11.13 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/219)
+- build(deps-dev): bump @types/node from 20.11.13 to 20.11.14 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/220)
+- build(deps-dev): bump webpack from 5.90.0 to 5.90.1 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/223)
+- build(deps-dev): bump @types/node from 20.11.14 to 20.11.16 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/222)
+- build(deps-dev): bump @types/node from 20.11.16 to 20.11.17 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/226)
+- build(deps-dev): bump prettier from 3.2.4 to 3.2.5 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/225)
+- build(deps-dev): bump mocha from 10.2.0 to 10.3.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/227)
+- build(deps-dev): bump @types/node from 20.11.17 to 20.11.19 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/229)
+- build(deps-dev): bump webpack from 5.90.1 to 5.90.2 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/228)
+- build(deps-dev): bump webpack from 5.90.2 to 5.90.3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/230)
+- build(deps-dev): bump @types/node from 20.11.19 to 20.11.20 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/231)
+- build(deps-dev): bump eslint from 8.56.0 to 8.57.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/234)
+- build(deps-dev): bump @types/node from 20.11.20 to 20.11.24 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/240)
+- build(deps-dev): bump tmp from 0.2.1 to 0.2.3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/238)
+- build(deps-dev): bump @vscode/vsce from 2.23.0 to 2.24.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/233)
+- build(deps-dev): bump @types/node from 20.11.24 to 20.11.25 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/241)
+- build(deps-dev): bump typescript from 5.3.3 to 5.4.2 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/242)
+- build(deps): bump softprops/action-gh-release from 1 to 2 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/243)
+- build(deps-dev): bump @types/node from 20.11.25 to 20.11.26 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/244)
+- build(deps-dev): bump @types/node from 20.11.26 to 20.11.27 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/245)
+- build(deps-dev): bump @types/node from 20.11.27 to 20.11.29 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/247)
+- build(deps-dev): bump @types/node from 20.11.29 to 20.11.30 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/248)
+- build(deps): bump encoding-japanese from 2.0.0 to 2.1.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/251)
+- build(deps-dev): bump typescript from 5.4.2 to 5.4.3 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/250)
+- build(deps-dev): bump webpack from 5.90.3 to 5.91.0 by @dependabot in[https://github.com/yutotnh/wave-dash-unify/pull/](https://github.com/yutotnh/wave-dash-unify/pull/249)
+
 ## [0.1.0]
 
 ## What's Changed
