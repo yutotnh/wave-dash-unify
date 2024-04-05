@@ -79,7 +79,7 @@
     "prettier": "^3.2.5",
     "tmp": "^0.2.3",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.4.3",
+    "typescript": "^5.4.4",
     "webpack": "^5.91.0",
     "webpack-cli": "^5.1.4"
   },
