@@ -74,6 +74,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - build(deps-dev): bump typescript from 5.4.2 to 5.4.3 by [@dependabot](https://github.com/apps/dependabot) in [#250](https://github.com/yutotnh/wave-dash-unify/pull/250)
 - build(deps-dev): bump webpack from 5.90.3 to 5.91.0 by [@dependabot](https://github.com/apps/dependabot) in [#249](https://github.com/yutotnh/wave-dash-unify/pull/249)
 
+**Full Changelog**: [v0.1.0...v0.1.1](https://github.com/yutotnh/wave-dash-unify/compare/v0.1.0...v0.1.1)
+
 ## [0.1.0]
 
 ## What's Changed
