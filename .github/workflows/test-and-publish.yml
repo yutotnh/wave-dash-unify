@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  test-and-publish:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
