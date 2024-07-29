@@ -64,7 +64,7 @@
     "@types/encoding-japanese": "^2.2.0",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.7",
-    "@types/node": "20.x",
+    "@types/node": "22.x",
     "@types/tmp": "^0.2.6",
     "@types/vscode": "^1.78.1",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
