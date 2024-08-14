@@ -648,10 +648,10 @@
   resolved "https://registry.yarnpkg.com/@pkgjs/parseargs/-/parseargs-0.11.0.tgz#a77ea742fab25775145434eb1d2328cf5013ac33"
   integrity sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==
 
-"@types/encoding-japanese@^2.2.0":
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/@types/encoding-japanese/-/encoding-japanese-2.2.0.tgz#d8018ae898842a0807570f04f68544a8744ae407"
-  integrity sha512-fCtfHERDAOTnG3qO8b848p6gkSOD9U4j7+Z9f/v/6kQSbOyy/dOOL6YZGxEdG5jl9ZbDaFIVJ/3AQq45S+LRQA==
+"@types/encoding-japanese@^2.2.1":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@types/encoding-japanese/-/encoding-japanese-2.2.1.tgz#4aa2b89e6a611a7b35ac54e15abb9c388b8d280d"
+  integrity sha512-6jjepuTusvySxMLP7W6usamlbgf0F4sIDvm7EzYePjLHY7zWUv4yz2PLUnu0vuNVtXOTLu2cRdFcDg40J5Owsw==
 
 "@types/eslint-scope@^3.7.3":
   version "3.7.4"
