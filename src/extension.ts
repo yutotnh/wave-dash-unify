@@ -147,10 +147,7 @@ export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
         i += waveDash.length;
         continue;
       } else if (
-        Buffer.compare(
-          str.slice(i, i + numeroSign.length),
-          numeroSign,
-        ) === 0
+        Buffer.compare(str.slice(i, i + numeroSign.length), numeroSign) === 0
       ) {
         for (let j = 0; j < numeroSignConverted.length; j++) {
           convertedString[convertedStringIndex++] = numeroSignConverted[j];
@@ -187,7 +184,10 @@ export function setupStatusBarItem() {
  * @param str 文字列
  * @returns 各文字の個数を含む辞書
  */
-export function countSpecificCharacters(str: string): { waveDashAndFullwidthTilde: number; numeroSign: number } {
+export function countSpecificCharacters(str: string): {
+  waveDashAndFullwidthTilde: number;
+  numeroSign: number;
+} {
   let waveDashAndFullwidthTildeCount = 0;
   let numeroSignCount = 0;
   for (let i = 0; i < str.length; i++) {
@@ -203,7 +203,10 @@ export function countSpecificCharacters(str: string): { waveDashAndFullwidthTild
     }
   }
 
-  return { waveDashAndFullwidthTilde: waveDashAndFullwidthTildeCount, numeroSign: numeroSignCount };
+  return {
+    waveDashAndFullwidthTilde: waveDashAndFullwidthTildeCount,
+    numeroSign: numeroSignCount,
+  };
 }
 
 /**
@@ -238,6 +241,7 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
     vscode.window.activeTextEditor?.document.getText() ?? "",
   );
 
-  statusBarItem.text = `${isConvertEnabled() ? "$(pass)" : "$(error)"
-    } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde},	全角NO: ${count.numeroSign}`;
+  statusBarItem.text = `${
+    isConvertEnabled() ? "$(pass)" : "$(error)"
+  } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde},	全角NO: ${count.numeroSign}`;
 }
