@@ -2,6 +2,10 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as encoding from "encoding-japanese";
 
+export const WAVEDASH_CODE_POINT = 0x301c;
+export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
+export const NUMERO_SIGN_CODE_POINT = 0x2116;
+
 let statusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -31,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((document) => {
-      replaceFullwidthTildeToWaveDash(document.fileName);
+      replaceSpecificCharacters(document.fileName);
     }),
   );
 
@@ -50,12 +54,17 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * 与えられた文字列中の全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変換する
+ * 与えられた文字列中の特定文字を文字化けしないように変換する
  *
+ * 置き換える文字は以下
+ * | 置き換え前                  | 置き換え後             |
+ * | --------------------------- | ---------------------- |
+ * | 全角チルダ (0x8F 0xA2 0xB7) | 波ダッシュ (0xA1 0xC1) |
+ * | 全角NO     (0x8F 0xA2 0xF1) | 全角NO     (0xAD 0xE2) |
  * @param filePath 変換対象のファイルのパス
  * @returns 変換後の文字列
  */
-export function replaceFullwidthTildeToWaveDash(filePath: string) {
+export function replaceSpecificCharacters(filePath: string) {
   if (!isConvertEnabled()) {
     return;
   }
@@ -66,7 +75,7 @@ export function replaceFullwidthTildeToWaveDash(filePath: string) {
     return;
   }
 
-  const convertedString = replaceFullwidthTildeToWaveDashInBuffer(content);
+  const convertedString = replaceSpecificCharactersInBuffer(content);
 
   // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
   // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
@@ -102,31 +111,54 @@ export function isEUCJP(str: Buffer): boolean {
 }
 
 /**
- * 与えられた文字列中の全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変換する
+ * 与えられた文字列中の特定文字を置き換えた文字列を返す
+ * 置き換える文字は以下
+ * | 置き換え前                  | 置き換え後             |
+ * | --------------------------- | ---------------------- |
+ * | 全角チルダ (0x8F 0xA2 0xB7) | 波ダッシュ (0xA1 0xC1) |
+ * | 全角NO     (0x8F 0xA2 0xF1) | 全角NO     (0xAD 0xE2) |
  *
  * @param str 変換したい文字列
  * @returns 変換後の文字列
  */
-export function replaceFullwidthTildeToWaveDashInBuffer(str: Buffer): Buffer {
+export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
   const fullwidthTilde = Buffer.from([0x8f, 0xa2, 0xb7]);
   const waveDash = Buffer.from([0xa1, 0xc1]);
+
+  const numeroSign = Buffer.from([0x8f, 0xa2, 0xf1]);
+  const numeroSignConverted = Buffer.from([0xad, 0xe2]);
 
   const convertedString: number[] = new Array(str.length);
   let convertedStringIndex = 0;
 
   for (let i = 0; i < str.length; i++) {
     // 変換したい元の文字列が3byteなので、現在の1byteに加えて2byte以上先があるときだけ変換を行う
-    if (
-      i + fullwidthTilde.length - 1 < str.length &&
-      Buffer.compare(
-        str.slice(i, i + fullwidthTilde.length),
-        fullwidthTilde,
-      ) === 0
-    ) {
-      convertedString[convertedStringIndex++] = waveDash[0];
-      convertedString[convertedStringIndex++] = waveDash[1];
+    if (i + fullwidthTilde.length - 1 < str.length) {
+      if (
+        Buffer.compare(
+          str.slice(i, i + fullwidthTilde.length),
+          fullwidthTilde,
+        ) === 0
+      ) {
+        for (let j = 0; j < waveDash.length; j++) {
+          convertedString[convertedStringIndex++] = waveDash[j];
+        }
 
-      i += fullwidthTilde.length - 1;
+        i += waveDash.length;
+        continue;
+      } else if (
+        Buffer.compare(
+          str.slice(i, i + numeroSign.length),
+          numeroSign,
+        ) === 0
+      ) {
+        for (let j = 0; j < numeroSignConverted.length; j++) {
+          convertedString[convertedStringIndex++] = numeroSignConverted[j];
+        }
+
+        i += numeroSign.length;
+        continue;
+      }
     } else {
       convertedString[convertedStringIndex++] = str[i];
     }
@@ -149,25 +181,29 @@ export function setupStatusBarItem() {
 }
 
 /**
- * 全角チルダと波ダッシュの個数を数える
+ * 全角チルダ、波ダッシュ、およびNUMERO SIGNの個数を数える
+ *
+ * 全角チルダと波ダッシュは同じ文字として扱う
  * @param str 文字列
- * @returns 全角チルダと波ダッシュの個数
+ * @returns 各文字の個数を含む辞書
  */
-export function countFullwidthTildeAndWaveDash(str: string): number {
-  const waveDashCodePoint = 0x301c;
-  const fullwidthTildeCodePoint = 0xff5e;
-
-  let count = 0;
+export function countSpecificCharacters(str: string): { waveDashAndFullwidthTilde: number; numeroSign: number } {
+  let waveDashAndFullwidthTildeCount = 0;
+  let numeroSignCount = 0;
   for (let i = 0; i < str.length; i++) {
     if (
-      str.codePointAt(i) === waveDashCodePoint ||
-      str.codePointAt(i) === fullwidthTildeCodePoint
+      str.codePointAt(i) === WAVEDASH_CODE_POINT ||
+      str.codePointAt(i) === FULLWIDTH_TILDE_CODE_POINT
     ) {
-      count++;
+      waveDashAndFullwidthTildeCount++;
+    }
+
+    if (str.codePointAt(i) === NUMERO_SIGN_CODE_POINT) {
+      numeroSignCount++;
     }
   }
 
-  return count;
+  return { waveDashAndFullwidthTilde: waveDashAndFullwidthTildeCount, numeroSign: numeroSignCount };
 }
 
 /**
@@ -198,11 +234,10 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   statusBarItem.tooltip = tooltip;
 
-  const count = countFullwidthTildeAndWaveDash(
+  const count = countSpecificCharacters(
     vscode.window.activeTextEditor?.document.getText() ?? "",
   );
 
-  statusBarItem.text = `${
-    isConvertEnabled() ? "$(pass)" : "$(error)"
-  } 全角チルダ・波ダッシュ: ${count}`;
+  statusBarItem.text = `${isConvertEnabled() ? "$(pass)" : "$(error)"
+    } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde},	全角NO: ${count.numeroSign}`;
 }

@@ -252,7 +252,7 @@ suite("Extension Test Suite", () => {
     contents.forEach((content) => {
       assert.strictEqual(
         extension
-          .replaceFullwidthTildeToWaveDashInBuffer(content.before)
+          .replaceSpecificCharactersInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
         `content: ${content.before.toString("hex")}`,
@@ -264,51 +264,55 @@ suite("Extension Test Suite", () => {
    * 全角チルダと波ダッシュの個数をカウントする関数をテストする
    */
   test("count fullwidth tilde and wave dash", () => {
-    const waveDashCodePoint = 0x301c;
-    const fullwidthTildeCodePoint = 0xff5e;
-
     const contents = [
       // 全角チルダのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(fullwidthTildeCodePoint),
+        string: String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(fullwidthTildeCodePoint).repeat(2),
+        string: String.fromCodePoint(
+          extension.FULLWIDTH_TILDE_CODE_POINT,
+        ).repeat(2),
         count: 2,
       },
       // 全角チルダの前後にASCII文字
       // 文字列: "1～～2"
       {
         string:
-          "1" + String.fromCodePoint(fullwidthTildeCodePoint).repeat(2) + "2",
+          "1" +
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
+          "2",
         count: 2,
       },
       // 波ダッシュのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(waveDashCodePoint),
+        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT),
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(waveDashCodePoint).repeat(2),
+        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
         count: 2,
       },
       // 波ダッシュの前後にASCII文字
       // 文字列: "1～～2"
       {
-        string: "1" + String.fromCodePoint(waveDashCodePoint).repeat(2) + "2",
+        string:
+          "1" +
+          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
+          "2",
         count: 2,
       },
       // 全角チルダと波ダッシュの混在
       // 文字列: "～～～～"
       {
         string:
-          String.fromCodePoint(fullwidthTildeCodePoint).repeat(2) +
-          String.fromCodePoint(waveDashCodePoint).repeat(2),
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
+          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
         count: 4,
       },
       // 全角チルダと波ダッシュがない文字列
@@ -321,7 +325,100 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension.countFullwidthTildeAndWaveDash(content.string),
+        extension.countSpecificCharacters(content.string)
+          .waveDashAndFullwidthTilde,
+        content.count,
+        `content: ${content.string}`,
+      );
+    });
+  });
+
+  /**
+   * 全角NOに変換する関数をテストする
+   */
+  test("replace numero sigh", () => {
+    const contents = [
+      // 全角NOのみ
+      // 文字列: "～"
+      {
+        before: Buffer.from([0x8f, 0xa2, 0xf1]),
+        after: Buffer.from([0xad, 0xe2]),
+      },
+      // 文字列: "～～"
+      {
+        before: Buffer.from([0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xf1]),
+        after: Buffer.from([0xad, 0xe2, 0xad, 0xe2]),
+      },
+
+      // 全角NOの前後にASCII文字
+      // 文字列: "1～～2"
+      {
+        before: Buffer.from([0x31, 0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xf1, 0x32]),
+        after: Buffer.from([0x31, 0xad, 0xe2, 0xad, 0xe2, 0x32]),
+      },
+
+      // 全角NOを含まないECU-JPの文字列
+      // 文字列: "あ"
+      {
+        before: Buffer.from([0xa4, 0xa2]),
+        after: Buffer.from([0xa4, 0xa2]),
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension
+          .replaceSpecificCharactersInBuffer(content.before)
+          .toString("hex"),
+        content.after.toString("hex"),
+        `content: ${content.before.toString("hex")}`,
+      );
+    });
+  });
+
+  /**
+   * 全角NOの個数をカウントする関数をテストする
+   */
+  test("count numero sign and wave dash", () => {
+    const contents = [
+      // 全角NOのみ
+      // 文字列: "№"
+      {
+        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+        count: 1,
+      },
+      // 文字列: "№№"
+      {
+        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+          2,
+        ),
+        count: 2,
+      },
+      // 全角NOの前後にASCII文字
+      // 文字列: "1№№2"
+      {
+        string:
+          "1" +
+          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(2) +
+          "2",
+        count: 2,
+      },
+      // 文字列: "№№"
+      {
+        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
+        count: 2,
+      },
+      // 全角NOがない文字列
+      // 文字列: "あ"
+      {
+        string: "あ",
+        count: 0,
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension.countSpecificCharacters(content.string).numeroSign,
         content.count,
         `content: ${content.string}`,
       );
@@ -399,19 +496,23 @@ suite("Extension Test Suite", () => {
    * 全角チルダと波ダッシュの個数を数えた数がステータスバーに表示されることを確認する
    */
   test("count fullwidth tilde and wave dash in active text editor", async () => {
-    const waveDashCodePoint = 0x301c;
-    const fullwidthTildeCodePoint = 0xff5e;
-
     const waveDashCount = 3;
     const fullwidthTildeCount = 2;
+    const numeroSignCount = 4;
 
     // アクティブなテキストエディタを作り、そのテキストエディタのステータスバーに表示される項目を取得する
     const document = await vscode.workspace.openTextDocument({
       language: "plaintext",
       content:
-        String.fromCodePoint(fullwidthTildeCodePoint).repeat(
+        String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(
           fullwidthTildeCount,
-        ) + String.fromCodePoint(waveDashCodePoint).repeat(waveDashCount),
+        ) +
+        String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(
+          waveDashCount,
+        ) +
+        String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+          numeroSignCount,
+        ),
     });
 
     await vscode.window.showTextDocument(document);
@@ -432,8 +533,7 @@ suite("Extension Test Suite", () => {
 
     extension.updateStatusBarItem(statusBarItem);
 
-    const count = waveDashCount + fullwidthTildeCount;
-    const expectedText = `$(pass) 全角チルダ・波ダッシュ: ${count}`;
+    const expectedText = `$(pass) 全角チルダ・波ダッシュ: ${waveDashCount + fullwidthTildeCount}, 全角NO: ${numeroSignCount}`;
 
     // ステータスバーに表示される文字列が正しいことを確認する
     assert.strictEqual(statusBarItem.text, expectedText);
