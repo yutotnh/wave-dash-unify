@@ -122,46 +122,35 @@ export function isEUCJP(str: Buffer): boolean {
  * @returns 変換後の文字列
  */
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
-  const fullwidthTilde = Buffer.from([0x8f, 0xa2, 0xb7]);
-  const waveDash = Buffer.from([0xa1, 0xc1]);
+  const replacements: { [key: string]: Buffer } = {
+    "8fa2b7": Buffer.from([0xa1, 0xc1]), // 全角チルダ -> 波ダッシュ
+    "8fa2f1": Buffer.from([0xad, 0xe2]), // 全角NO -> 全角NO
+  };
 
-  const numeroSign = Buffer.from([0x8f, 0xa2, 0xf1]);
-  const numeroSignConverted = Buffer.from([0xad, 0xe2]);
+  const convertedString: number[] = [];
+  let i = 0;
 
-  const convertedString: number[] = new Array(str.length);
-  let convertedStringIndex = 0;
+  while (i < str.length) {
+    let replaced = false;
 
-  for (let i = 0; i < str.length; i++) {
-    // 変換したい元の文字列が3byteなので、現在の1byteに加えて2byte以上先があるときだけ変換を行う
-    if (i + fullwidthTilde.length - 1 < str.length) {
-      if (
-        Buffer.compare(
-          str.slice(i, i + fullwidthTilde.length),
-          fullwidthTilde,
-        ) === 0
-      ) {
-        for (let j = 0; j < waveDash.length; j++) {
-          convertedString[convertedStringIndex++] = waveDash[j];
-        }
+    for (const [key, value] of Object.entries(replacements)) {
+      const keyBuffer = Buffer.from(key, "hex");
 
-        i += waveDash.length;
-        continue;
-      } else if (
-        Buffer.compare(str.slice(i, i + numeroSign.length), numeroSign) === 0
-      ) {
-        for (let j = 0; j < numeroSignConverted.length; j++) {
-          convertedString[convertedStringIndex++] = numeroSignConverted[j];
-        }
-
-        i += numeroSign.length;
-        continue;
+      if (str.subarray(i, i + keyBuffer.length).equals(keyBuffer)) {
+        convertedString.push(...value);
+        i += keyBuffer.length;
+        replaced = true;
+        break;
       }
-    } else {
-      convertedString[convertedStringIndex++] = str[i];
+    }
+
+    if (!replaced) {
+      convertedString.push(str[i]);
+      i++;
     }
   }
 
-  return Buffer.from(convertedString.slice(0, convertedStringIndex));
+  return Buffer.from(convertedString);
 }
 
 /**
@@ -188,60 +177,52 @@ export function countSpecificCharacters(str: string): {
   waveDashAndFullwidthTilde: number;
   numeroSign: number;
 } {
-  let waveDashAndFullwidthTildeCount = 0;
-  let numeroSignCount = 0;
-  for (let i = 0; i < str.length; i++) {
-    if (
-      str.codePointAt(i) === WAVEDASH_CODE_POINT ||
-      str.codePointAt(i) === FULLWIDTH_TILDE_CODE_POINT
-    ) {
-      waveDashAndFullwidthTildeCount++;
-    }
+  const counts = {
+    waveDashAndFullwidthTilde: 0,
+    numeroSign: 0,
+  };
 
-    if (str.codePointAt(i) === NUMERO_SIGN_CODE_POINT) {
-      numeroSignCount++;
+  for (const char of str) {
+    const codePoint = char.codePointAt(0);
+    if (
+      codePoint === WAVEDASH_CODE_POINT ||
+      codePoint === FULLWIDTH_TILDE_CODE_POINT
+    ) {
+      counts.waveDashAndFullwidthTilde++;
+    } else if (codePoint === NUMERO_SIGN_CODE_POINT) {
+      counts.numeroSign++;
     }
   }
 
-  return {
-    waveDashAndFullwidthTilde: waveDashAndFullwidthTildeCount,
-    numeroSign: numeroSignCount,
-  };
+  return counts;
 }
 
 /**
- * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効を表示する
+ * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効と対象文字の個数を表示する
  *
  * @param statusBarItem ステータスバーに表示する項目
  */
 export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
+  const activeEditor = vscode.window.activeTextEditor;
+
   // アクティブなテキストエディタがファイルではない場合は
   // 全角チルダと波ダッシュの個数を表示しても意味がないので、
   // ステータスバーの表示領域のスペースを空けるために非表示にする
-  if (!vscode.window.activeTextEditor) {
+  if (!activeEditor) {
     statusBarItem.hide();
     return;
   }
 
   statusBarItem.show();
 
-  let tooltip = "";
+  const isEnabled = isConvertEnabled();
+  statusBarItem.tooltip = isEnabled
+    ? "Wave Dash Unify is enabled"
+    : "Wave Dash Unify is disabled";
 
-  // ステータスバーに表示するアイコンだと何を表しているのか伝わりにくいので、
-  // ツールチップで有効/無効を説明する
-  if (isConvertEnabled()) {
-    tooltip = "Wave Dash Unify is enabled";
-  } else {
-    tooltip = "Wave Dash Unify is disabled";
-  }
-
-  statusBarItem.tooltip = tooltip;
-
-  const count = countSpecificCharacters(
-    vscode.window.activeTextEditor?.document.getText() ?? "",
-  );
+  const count = countSpecificCharacters(activeEditor.document.getText());
 
   statusBarItem.text = `${
-    isConvertEnabled() ? "$(pass)" : "$(error)"
-  } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde},	全角NO: ${count.numeroSign}`;
+    isEnabled ? "$(pass)" : "$(error)"
+  } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde}, 全角NO: ${count.numeroSign}`;
 }

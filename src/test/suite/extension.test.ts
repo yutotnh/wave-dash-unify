@@ -379,7 +379,7 @@ suite("Extension Test Suite", () => {
   /**
    * 全角NOの個数をカウントする関数をテストする
    */
-  test("count numero sign and wave dash", () => {
+  test("count numero sign", () => {
     const contents = [
       // 全角NOのみ
       // 文字列: "№"
@@ -405,7 +405,9 @@ suite("Extension Test Suite", () => {
       },
       // 文字列: "№№"
       {
-        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
+        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+          2,
+        ),
         count: 2,
       },
       // 全角NOがない文字列
@@ -495,7 +497,7 @@ suite("Extension Test Suite", () => {
   /**
    * 全角チルダと波ダッシュの個数を数えた数がステータスバーに表示されることを確認する
    */
-  test("count fullwidth tilde and wave dash in active text editor", async () => {
+  test("count fullwidth tilde, wave dash, and numero sign in active text editor", async () => {
     const waveDashCount = 3;
     const fullwidthTildeCount = 2;
     const numeroSignCount = 4;
