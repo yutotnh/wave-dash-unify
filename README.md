@@ -7,7 +7,12 @@
 [![Dev Containers](https://github.com/yutotnh/wave-dash-unify/actions/workflows/devcontainer.yml/badge.svg?branch=main)](https://github.com/yutotnh/wave-dash-unify/actions/workflows/devcontainer.yml)
 [![CodeQL](https://github.com/yutotnh/wave-dash-unify/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/yutotnh/wave-dash-unify/actions/workflows/codeql.yml)
 
-EUC-JP のファイルを保存した時に、全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変更します
+EUC-JP のファイルを保存した時に、以下の文字の置き換えを行います。
+
+| 置き換え対象文字                | 置き換え後                 |
+| ------------------------------- | -------------------------- |
+| 全角チルダ (～: 0x8F 0xA2 0xB7) | 波ダッシュ (〜: 0xA1 0xC1) |
+| 全角NO     (№: 0x8F 0xA2 0xF1)  | 全角NO     (№: 0xAD 0xE2)  |
 
 ## Features
 
@@ -16,6 +21,8 @@ VS Code ではファイルの文字コードに EUC-JP を指定した状態で`
 そのため、VS Code で`～`を含まれる EUC-JP のファイルを編集した際に他のツールでファイルを閲覧すると文字化けするといった問題が発生します
 
 この拡張機能をインストールすると、EUC-JP のファイルを保存した時に全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変更し、前述の文字化け問題を回避します
+
+その他置き換え対象文字についても、同様の処理を行います
 
 おおまかな処理は以下の通りです
 
@@ -33,13 +40,16 @@ sequenceDiagram
     vscode ->> extension: ファイルを保存したことを通知
     extension ->> file: ファイルの中身を要求する
     file ->> extension: ファイルの中身を返す
-    extension ->> extension: ファイルの中身の全角チルダ(0x8F 0xA2 0xB7)を波ダッシュ(0xA1 0xC1)に変換する
+    extension ->> extension: ファイルの中の置き換え対象文字を置き換える
     extension ->> file: 変換した中身を保存する
 ```
 
 ## Extension Settings
 
-- `waveDashUnify.enableConvert`: Enable convert to wave dash to fullwidth tilde
+- `waveDashUnify.enableConvert`: Enable convert to target characters
+- `waveDashUnify.fullwidthTildeToWaveDash`: Convert fullwidth tilde to wave dash
+- `waveDashUnify.numeroSignToNumeroSign`: Convert numero sign (0x8F 0xA2 0xF1) to numero sign (0xAD 0xE2)
+
 
 ## Known Issues
 

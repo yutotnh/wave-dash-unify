@@ -82,10 +82,11 @@ suite("Extension Test Suite", () => {
         enableConvert: true,
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
-        insert: "～",
+        insert: "～№",
         // 文字列: "～ああああ"
         expect: Buffer.from([
-          0xa1, 0xc1, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
+          0xa1, 0xc1, 0xad, 0xe2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4,
+          0xa2,
         ]),
       },
       {
@@ -93,10 +94,11 @@ suite("Extension Test Suite", () => {
         enableConvert: false,
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
-        insert: "～",
+        insert: "～№",
         // 文字列: "～ああああ"
         expect: Buffer.from([
-          0x8f, 0xa2, 0xb7, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
+          0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1, 0xa1, 0xc1, 0xa4, 0xa4, 0xa2,
+          0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
         ]),
       },
     ];
@@ -339,19 +341,19 @@ suite("Extension Test Suite", () => {
   test("replace numero sigh", () => {
     const contents = [
       // 全角NOのみ
-      // 文字列: "～"
+      // 文字列: "№"
       {
         before: Buffer.from([0x8f, 0xa2, 0xf1]),
         after: Buffer.from([0xad, 0xe2]),
       },
-      // 文字列: "～～"
+      // 文字列: "№№"
       {
         before: Buffer.from([0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xf1]),
         after: Buffer.from([0xad, 0xe2, 0xad, 0xe2]),
       },
 
       // 全角NOの前後にASCII文字
-      // 文字列: "1～～2"
+      // 文字列: "1№№2"
       {
         before: Buffer.from([0x31, 0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xf1, 0x32]),
         after: Buffer.from([0x31, 0xad, 0xe2, 0xad, 0xe2, 0x32]),
@@ -425,6 +427,145 @@ suite("Extension Test Suite", () => {
         `content: ${content.string}`,
       );
     });
+  });
+
+  /**
+   * すべての対象文字を含む文字列で、変換する関数をテストする
+   */
+  test("replace all target characters", () => {
+    const contents = [
+      // 文字列: "～№～"
+      {
+        before: Buffer.from([
+          0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xb7,
+        ]),
+        after: Buffer.from([0xa1, 0xc1, 0xad, 0xe2, 0xa1, 0xc1]),
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension
+          .replaceSpecificCharactersInBuffer(content.before)
+          .toString("hex"),
+        content.after.toString("hex"),
+        `content: ${content.before.toString("hex")}`,
+      );
+    });
+  });
+
+  /**
+   * すべての対象文字を含む文字列で、個数をカウントする関数をテストする
+   */
+  test("count all target characters", () => {
+    const contents = [
+      // 文字列: "№№"
+      {
+        string:
+          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(1) +
+          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
+          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(4) +
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(8),
+        count: { waveDashAndFullwidthTilde: 10, numeroSign: 5 },
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.deepStrictEqual(
+        extension.countSpecificCharacters(content.string),
+        content.count,
+        `content: ${content.string}`,
+      );
+    });
+  });
+
+  /**
+   * 設定のtrue/falseによって、全角チルダを波ダッシュに変換する機能の有効/無効を切り替える関数をテストする
+   */
+  test("config enable/disable convert", async () => {
+    const config = vscode.workspace.getConfiguration("waveDashUnify");
+    // ～№
+    const contents = Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1]);
+
+    async function configration(
+      enableConvert: boolean,
+      fullwidthTildeToWaveDash: boolean,
+      numeroSignToNumeroSign: boolean,
+    ) {
+      await config.update(
+        "enableConvert",
+        enableConvert,
+        vscode.ConfigurationTarget.Global,
+      );
+
+      await config.update(
+        "fullwidthTildeToWaveDash",
+        fullwidthTildeToWaveDash,
+        vscode.ConfigurationTarget.Global,
+      );
+
+      await config.update(
+        "numeroSignToNumeroSign",
+        numeroSignToNumeroSign,
+        vscode.ConfigurationTarget.Global,
+      );
+    }
+
+    await configration(true, true, true);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      Buffer.from([0xa1, 0xc1, 0xad, 0xe2]).toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
+    );
+
+    await configration(true, true, false);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      Buffer.from([0xa1, 0xc1, 0x8f, 0xa2, 0xf1]).toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
+    );
+
+    await configration(true, false, true);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      Buffer.from([0x8f, 0xa2, 0xb7, 0xad, 0xe2]).toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
+    );
+
+    await configration(true, false, false);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      contents.toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
+    );
+
+    await configration(false, true, true);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      contents.toString("hex"),
+      "enableConvert: false, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
+    );
+
+    await configration(false, true, false);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      contents.toString("hex"),
+      "enableConvert: false, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
+    );
+
+    await configration(false, false, true);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      contents.toString("hex"),
+      "enableConvert: false, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
+    );
+
+    await configration(false, false, false);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      contents.toString("hex"),
+      "enableConvert: false, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
+    );
   });
 
   /**

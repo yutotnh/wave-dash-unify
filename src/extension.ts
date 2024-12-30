@@ -122,10 +122,17 @@ export function isEUCJP(str: Buffer): boolean {
  * @returns 変換後の文字列
  */
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
-  const replacements: { [key: string]: Buffer } = {
-    "8fa2b7": Buffer.from([0xa1, 0xc1]), // 全角チルダ -> 波ダッシュ
-    "8fa2f1": Buffer.from([0xad, 0xe2]), // 全角NO -> 全角NO
-  };
+  const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+  const replacements: { [key: string]: Buffer } = {};
+
+  if (config.get("fullwidthTildeToWaveDash")) {
+    replacements["8fa2b7"] = Buffer.from([0xa1, 0xc1]); // 全角チルダ -> 波ダッシュ
+  }
+
+  if (config.get("numeroSignToNumeroSign")) {
+    replacements["8fa2f1"] = Buffer.from([0xad, 0xe2]); // 全角NO -> 全角NO
+  }
 
   const convertedString: number[] = [];
   let i = 0;
@@ -222,6 +229,8 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   const count = countSpecificCharacters(activeEditor.document.getText());
 
+  // waveDashUnify.numeroSignToNumeroSignなどの設定にかかわらず、
+  // 対象文字の個数を表示する
   statusBarItem.text = `${
     isEnabled ? "$(pass)" : "$(error)"
   } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde}, 全角NO: ${count.numeroSign}`;
