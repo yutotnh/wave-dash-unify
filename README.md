@@ -50,7 +50,6 @@ sequenceDiagram
 - `waveDashUnify.fullwidthTildeToWaveDash`: Convert fullwidth tilde to wave dash
 - `waveDashUnify.numeroSignToNumeroSign`: Convert numero sign (0x8F 0xA2 0xF1) to numero sign (0xAD 0xE2)
 
-
 ## Known Issues
 
 ### [Ctrl+S を長押しすると、ファイルの上書きに失敗する](https://github.com/yutotnh/wave-dash-unify/issues/13)
