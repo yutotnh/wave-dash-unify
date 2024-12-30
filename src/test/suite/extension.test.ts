@@ -11,6 +11,26 @@ import * as vscode from "vscode";
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
 
+  test("Cleanup", async () => {
+    // テスト後にファイルを削除する
+    tmp.setGracefulCleanup();
+
+    // 設定をリセットする
+    const config = vscode.workspace.getConfiguration("waveDashUnify");
+    const settings = [
+      "enableConvert",
+      "fullwidthTildeToWaveDash",
+      "numeroSignToNumeroSign",
+      "statusBarFormat",
+    ];
+
+    await Promise.all(
+      settings.map((setting) =>
+        config.update(setting, undefined, vscode.ConfigurationTarget.Global),
+      ),
+    );
+  });
+
   /**
    * 統合テスト
    */
@@ -661,19 +681,16 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
-    // 反映が遅いため、statusBarItem.textが空文字になるまで待つ
-    await new Promise((resolve) => setTimeout(resolve, 100));
     assert.strictEqual(statusBarItem.text, "", "statusBarFormat: empty");
 
     // formatが任意の文字列の時、ステータスバーに表示されることを確認する
     // 変数が無くても意図通りの表示されることを確認するために、statusBarIconは省略する
     await config.update(
       "statusBarFormat",
-      "Wave Dash Unify: №({numeroSign}) ～({waveDashAndFullwidthTilde})",
+      "Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashAndFullwidthTildeCount})",
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
-    await new Promise((resolve) => setTimeout(resolve, 100));
     const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashCount + fullwidthTildeCount})`;
     assert.strictEqual(
       statusBarItem.text,

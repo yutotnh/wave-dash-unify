@@ -218,7 +218,7 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   // アクティブなテキストエディタがファイルではない場合は
   // 全角チルダと波ダッシュの個数を表示しても意味がないので、
   // ステータスバーの表示領域のスペースを空けるために非表示にする
-  if (!activeEditor || format === "") {
+  if (!activeEditor) {
     statusBarItem.hide();
     return;
   }
