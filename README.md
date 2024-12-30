@@ -49,6 +49,7 @@ sequenceDiagram
 - `waveDashUnify.enableConvert`: Enable convert to target characters
 - `waveDashUnify.fullwidthTildeToWaveDash`: Convert fullwidth tilde to wave dash
 - `waveDashUnify.numeroSignToNumeroSign`: Convert numero sign (0x8F 0xA2 0xF1) to numero sign (0xAD 0xE2)
+- `waveDashUnify.statusBarFormat`: The format of the status bar item
 
 ## Known Issues
 
