@@ -10,45 +10,43 @@ let statusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    vscode.commands.registerCommand("waveDashUnify.enableConvert", async () => {
-      await vscode.workspace
-        .getConfiguration("waveDashUnify")
-        .update("enableConvert", true, true);
+    vscode.Disposable.from(
+      vscode.commands.registerCommand(
+        "waveDashUnify.enableConvert",
+        async () => {
+          await vscode.workspace
+            .getConfiguration("waveDashUnify")
+            .update("enableConvert", true, true);
 
-      updateStatusBarItem(statusBarItem);
-    }),
-  );
+          updateStatusBarItem(statusBarItem);
+        },
+      ),
+      vscode.commands.registerCommand(
+        "waveDashUnify.disableConvert",
+        async () => {
+          await vscode.workspace
+            .getConfiguration("waveDashUnify")
+            .update("enableConvert", false, true);
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "waveDashUnify.disableConvert",
-      async () => {
-        await vscode.workspace
-          .getConfiguration("waveDashUnify")
-          .update("enableConvert", false, true);
-
+          updateStatusBarItem(statusBarItem);
+        },
+      ),
+      // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
+      vscode.workspace.onDidSaveTextDocument((document) => {
+        replaceSpecificCharacters(document.fileName);
+      }),
+      // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
+      vscode.window.onDidChangeActiveTextEditor(() => {
         updateStatusBarItem(statusBarItem);
-      },
+      }),
+      vscode.workspace.onDidChangeTextDocument(() => {
+        updateStatusBarItem(statusBarItem);
+      }),
+      vscode.workspace.onDidChangeConfiguration(() => {
+        updateStatusBarItem(statusBarItem);
+      }),
     ),
   );
-
-  // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
-  context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument((document) => {
-      replaceSpecificCharacters(document.fileName);
-    }),
-  );
-
-  // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
-  vscode.window.onDidChangeActiveTextEditor(() => {
-    updateStatusBarItem(statusBarItem);
-  });
-  vscode.workspace.onDidChangeTextDocument(() => {
-    updateStatusBarItem(statusBarItem);
-  });
-  vscode.workspace.onDidChangeConfiguration(() => {
-    updateStatusBarItem(statusBarItem);
-  });
 
   setupStatusBarItem();
 }
@@ -242,4 +240,10 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
       count.waveDashAndFullwidthTilde.toString(),
     )
     .replace("${numeroSignCount}", count.numeroSign.toString());
+}
+
+export function deactivate() {
+  if (statusBarItem) {
+    statusBarItem.dispose();
+  }
 }
