@@ -212,10 +212,13 @@ export function countSpecificCharacters(str: string): {
 export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   const activeEditor = vscode.window.activeTextEditor;
 
+  const config = vscode.workspace.getConfiguration("waveDashUnify");
+  const format = config.get<string>("statusBarFormat") as string;
+
   // アクティブなテキストエディタがファイルではない場合は
   // 全角チルダと波ダッシュの個数を表示しても意味がないので、
   // ステータスバーの表示領域のスペースを空けるために非表示にする
-  if (!activeEditor) {
+  if (!activeEditor || format === "") {
     statusBarItem.hide();
     return;
   }
@@ -231,7 +234,12 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   // waveDashUnify.numeroSignToNumeroSignなどの設定にかかわらず、
   // 対象文字の個数を表示する
-  statusBarItem.text = `${
-    isEnabled ? "$(pass)" : "$(error)"
-  } 全角チルダ・波ダッシュ: ${count.waveDashAndFullwidthTilde}, 全角NO: ${count.numeroSign}`;
+
+  statusBarItem.text = format
+    .replace("${statusIcon}", isEnabled ? "$(pass-filled)" : "$(error)")
+    .replace(
+      "${waveDashAndFullwidthTildeCount}",
+      count.waveDashAndFullwidthTilde.toString(),
+    )
+    .replace("${numeroSignCount}", count.numeroSign.toString());
 }
