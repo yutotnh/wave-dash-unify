@@ -83,7 +83,7 @@ suite("Extension Test Suite", () => {
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
         insert: "～№",
-        // 文字列: "～ああああ"
+        // 文字列: "～№ああああ"
         expect: Buffer.from([
           0xa1, 0xc1, 0xad, 0xe2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4,
           0xa2,
@@ -95,10 +95,10 @@ suite("Extension Test Suite", () => {
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
         insert: "～№",
-        // 文字列: "～ああああ"
+        // 文字列: "～№ああああ"
         expect: Buffer.from([
-          0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1, 0xa1, 0xc1, 0xa4, 0xa4, 0xa2,
-          0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
+          0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1, 0xa4, 0xa4, 0xa2, 0xa4, 0xa2,
+          0xa4, 0xa2, 0xa4, 0xa2,
         ]),
       },
     ];
@@ -481,6 +481,11 @@ suite("Extension Test Suite", () => {
 
   /**
    * 設定のtrue/falseによって、全角チルダを波ダッシュに変換する機能の有効/無効を切り替える関数をテストする
+   *
+   * replaceSpecificCharactersInBufferにはwaveDashUnify.enableConvertの設定値が反映されないため、
+   * このテストではreplaceSpecificCharactersInBufferによる変換結果への影響を確認しない
+   *
+   * waveDashUnify.enableConvertの設定値の影響確認は、統合テストで行う
    */
   test("config enable/disable convert", async () => {
     const config = vscode.workspace.getConfiguration("waveDashUnify");
@@ -488,16 +493,9 @@ suite("Extension Test Suite", () => {
     const contents = Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1]);
 
     async function configuration(
-      enableConvert: boolean,
       fullwidthTildeToWaveDash: boolean,
       numeroSignToNumeroSign: boolean,
     ) {
-      await config.update(
-        "enableConvert",
-        enableConvert,
-        vscode.ConfigurationTarget.Global,
-      );
-
       await config.update(
         "fullwidthTildeToWaveDash",
         fullwidthTildeToWaveDash,
@@ -511,60 +509,32 @@ suite("Extension Test Suite", () => {
       );
     }
 
-    await configuration(true, true, true);
+    await configuration(true, true);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
     );
 
-    await configuration(true, true, false);
+    await configuration(true, false);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0x8f, 0xa2, 0xf1]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
     );
 
-    await configuration(true, false, true);
+    await configuration(false, true);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0x8f, 0xa2, 0xb7, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
     );
 
-    await configuration(true, false, false);
+    await configuration(false, false);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
-    );
-
-    await configuration(false, true, true);
-    assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
-      contents.toString("hex"),
-      "enableConvert: false, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
-    );
-
-    await configuration(false, true, false);
-    assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
-      contents.toString("hex"),
-      "enableConvert: false, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
-    );
-
-    await configuration(false, false, true);
-    assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
-      contents.toString("hex"),
-      "enableConvert: false, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
-    );
-
-    await configuration(false, false, false);
-    assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
-      contents.toString("hex"),
-      "enableConvert: false, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
     );
   });
 
