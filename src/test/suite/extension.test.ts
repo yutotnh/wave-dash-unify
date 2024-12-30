@@ -697,5 +697,13 @@ suite("Extension Test Suite", () => {
       expectedTextWithFormat,
       "statusBarFormat: custom",
     );
+
+    vscode.window.showQuickPick(["OK"], {
+      placeHolder: "Please check the status bar",
+    });
   });
+
+  // TODO ステータスバーのクリック時に実行されるコマンドのテストを行う
+  // test("status bar item click", () => {
+  // });
 });

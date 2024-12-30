@@ -9,6 +9,8 @@ export const NUMERO_SIGN_CODE_POINT = 0x2116;
 let statusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
+  setupStatusBarItem();
+
   context.subscriptions.push(
     vscode.Disposable.from(
       vscode.commands.registerCommand(
@@ -45,10 +47,46 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidChangeConfiguration(() => {
         updateStatusBarItem(statusBarItem);
       }),
+
+      // StatusBarのクリックイベントを登録
+      vscode.commands.registerCommand(
+        "waveDashUnify.SelectEnableOrDisable",
+        () => {
+          const quickPick = vscode.window.createQuickPick();
+          quickPick.items = [
+            {
+              label: "Enable convert",
+              description: "Enable convert",
+            },
+            {
+              label: "Disable convert",
+              description: "Disable convert",
+            },
+          ];
+
+          quickPick.onDidChangeSelection((selection) => {
+            if (selection.length === 0) {
+              return;
+            }
+
+            const selectedItem = selection[0];
+
+            if (selectedItem.label === "Enable convert") {
+              vscode.commands.executeCommand("waveDashUnify.enableConvert");
+            } else if (selectedItem.label === "Disable convert") {
+              vscode.commands.executeCommand("waveDashUnify.disableConvert");
+            }
+
+            quickPick.hide();
+          });
+
+          quickPick.onDidHide(() => quickPick.dispose());
+
+          quickPick.show();
+        },
+      ),
     ),
   );
-
-  setupStatusBarItem();
 }
 
 /**
@@ -167,6 +205,7 @@ export function setupStatusBarItem() {
   );
 
   statusBarItem.name = "Wave Dash Unify";
+  statusBarItem.command = "waveDashUnify.SelectEnableOrDisable";
 
   updateStatusBarItem(statusBarItem);
 }
