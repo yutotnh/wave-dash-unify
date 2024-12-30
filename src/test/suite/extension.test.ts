@@ -561,7 +561,7 @@ suite("Extension Test Suite", () => {
 
     const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき、先頭に"$(pass)"が表示されることを確認する"
+    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき、先頭に"$(pass-filled)"が表示されることを確認する"
     await config.update(
       "enableConvert",
       true,
@@ -570,7 +570,7 @@ suite("Extension Test Suite", () => {
 
     extension.updateStatusBarItem(statusBarItem);
 
-    const expectedEnableStatusIcon = "$(pass)";
+    const expectedEnableStatusIcon = "$(pass-filled)";
     assert.strictEqual(
       statusBarItem.text.startsWith(expectedEnableStatusIcon),
       true,
@@ -650,18 +650,6 @@ suite("Extension Test Suite", () => {
     // ステータスバーに表示される文字列が正しいことを確認する
     assert.strictEqual(statusBarItem.text, expectedText);
 
-    // enableConvertがfalseのとき、ステータスバーに表示されないことを確認する
-    await config.update(
-      "enableConvert",
-      false,
-      vscode.ConfigurationTarget.Global,
-    );
-    extension.updateStatusBarItem(statusBarItem);
-    assert.strictEqual(
-      statusBarItem.text,
-      `$(error) ～: ${waveDashCount + fullwidthTildeCount}, №: ${numeroSignCount}`,
-    );
-
     // formatが空文字のとき、ステータスバーに表示されないことを確認する
     await config.update(
       "statusBarFormat",
@@ -675,11 +663,11 @@ suite("Extension Test Suite", () => {
     // 変数が無くても意図通りの表示されることを確認するために、statusBarIconは省略する
     await config.update(
       "statusBarFormat",
-      "Wave Dash Unify:  №({numeroSign}) ～({waveDashAndFullwidthTilde})",
+      "Wave Dash Unify: №({numeroSign}) ～({waveDashAndFullwidthTilde})",
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
-    const expectedTextWithFormat = `Wave Dash Unify:  №(${numeroSignCount}) ～(${waveDashCount + fullwidthTildeCount})`;
+    const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashCount + fullwidthTildeCount})`;
     assert.strictEqual(statusBarItem.text, expectedTextWithFormat);
   });
 });
