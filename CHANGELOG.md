@@ -6,6 +6,19 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.3.0]
+
+## What's Changed
+
+### Exciting New Features 🎉
+
+- feat: ステータスバーの表示形式を設定可能にする #425 by @yutotnh in [#427](https://github.com/yutotnh/wave-dash-unify/pull/427)
+- feat: ステータスバーにクリックイベントを追加し、変換の有効/無効を選択可能にする by @yutotnh in [#429](https://github.com/yutotnh/wave-dash-unify/pull/429)
+
+### Other Changes
+
+- bug: リソース開放周りの漏れを修正 by @yutotnh in [#428](https://github.com/yutotnh/wave-dash-unify/pull/428)
+
 ## [0.2.0]
 
 ## What's Changed
