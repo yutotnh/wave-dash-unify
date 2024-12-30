@@ -661,6 +661,8 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
+    // 反映が遅いため、statusBarItem.textが空文字になるまで待つ
+    await new Promise((resolve) => setTimeout(resolve, 100));
     assert.strictEqual(statusBarItem.text, "", "statusBarFormat: empty");
 
     // formatが任意の文字列の時、ステータスバーに表示されることを確認する
@@ -671,6 +673,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashCount + fullwidthTildeCount})`;
     assert.strictEqual(
       statusBarItem.text,
