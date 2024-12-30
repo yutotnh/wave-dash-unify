@@ -648,7 +648,11 @@ suite("Extension Test Suite", () => {
 
     const expectedText = `$(pass-filled) ～: ${waveDashCount + fullwidthTildeCount}, №: ${numeroSignCount}`;
     // ステータスバーに表示される文字列が正しいことを確認する
-    assert.strictEqual(statusBarItem.text, expectedText);
+    assert.strictEqual(
+      statusBarItem.text,
+      expectedText,
+      "statusBarText: default",
+    );
 
     // formatが空文字のとき、ステータスバーに表示されないことを確認する
     await config.update(
@@ -657,7 +661,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
-    assert.strictEqual(statusBarItem.text, "");
+    assert.strictEqual(statusBarItem.text, "", "statusBarFormat: empty");
 
     // formatが任意の文字列の時、ステータスバーに表示されることを確認する
     // 変数が無くても意図通りの表示されることを確認するために、statusBarIconは省略する
@@ -668,6 +672,10 @@ suite("Extension Test Suite", () => {
     );
     extension.updateStatusBarItem(statusBarItem);
     const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashCount + fullwidthTildeCount})`;
-    assert.strictEqual(statusBarItem.text, expectedTextWithFormat);
+    assert.strictEqual(
+      statusBarItem.text,
+      expectedTextWithFormat,
+      "statusBarFormat: custom",
+    );
   });
 });
