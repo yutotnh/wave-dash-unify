@@ -487,7 +487,7 @@ suite("Extension Test Suite", () => {
     // ～№
     const contents = Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1]);
 
-    async function configration(
+    async function configuration(
       enableConvert: boolean,
       fullwidthTildeToWaveDash: boolean,
       numeroSignToNumeroSign: boolean,
@@ -511,56 +511,56 @@ suite("Extension Test Suite", () => {
       );
     }
 
-    await configration(true, true, true);
+    await configuration(true, true, true);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
     );
 
-    await configration(true, true, false);
+    await configuration(true, true, false);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0x8f, 0xa2, 0xf1]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
     );
 
-    await configration(true, false, true);
+    await configuration(true, false, true);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0x8f, 0xa2, 0xb7, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
     );
 
-    await configration(true, false, false);
+    await configuration(true, false, false);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
     );
 
-    await configration(false, true, true);
+    await configuration(false, true, true);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
       "enableConvert: false, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
     );
 
-    await configration(false, true, false);
+    await configuration(false, true, false);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
       "enableConvert: false, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
     );
 
-    await configration(false, false, true);
+    await configuration(false, false, true);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
       "enableConvert: false, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
     );
 
-    await configration(false, false, false);
+    await configuration(false, false, false);
     assert.strictEqual(
       extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
