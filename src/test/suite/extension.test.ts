@@ -82,10 +82,11 @@ suite("Extension Test Suite", () => {
         enableConvert: true,
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
-        insert: "～",
-        // 文字列: "～ああああ"
+        insert: "～№",
+        // 文字列: "～№ああああ"
         expect: Buffer.from([
-          0xa1, 0xc1, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
+          0xa1, 0xc1, 0xad, 0xe2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4,
+          0xa2,
         ]),
       },
       {
@@ -93,10 +94,11 @@ suite("Extension Test Suite", () => {
         enableConvert: false,
         // 文字列: "ああああ"
         contents: Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2]),
-        insert: "～",
-        // 文字列: "～ああああ"
+        insert: "～№",
+        // 文字列: "～№ああああ"
         expect: Buffer.from([
-          0x8f, 0xa2, 0xb7, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
+          0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4,
+          0xa2, 0xa4, 0xa2,
         ]),
       },
     ];
@@ -252,7 +254,7 @@ suite("Extension Test Suite", () => {
     contents.forEach((content) => {
       assert.strictEqual(
         extension
-          .replaceFullwidthTildeToWaveDashInBuffer(content.before)
+          .replaceSpecificCharactersInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
         `content: ${content.before.toString("hex")}`,
@@ -264,51 +266,55 @@ suite("Extension Test Suite", () => {
    * 全角チルダと波ダッシュの個数をカウントする関数をテストする
    */
   test("count fullwidth tilde and wave dash", () => {
-    const waveDashCodePoint = 0x301c;
-    const fullwidthTildeCodePoint = 0xff5e;
-
     const contents = [
       // 全角チルダのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(fullwidthTildeCodePoint),
+        string: String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(fullwidthTildeCodePoint).repeat(2),
+        string: String.fromCodePoint(
+          extension.FULLWIDTH_TILDE_CODE_POINT,
+        ).repeat(2),
         count: 2,
       },
       // 全角チルダの前後にASCII文字
       // 文字列: "1～～2"
       {
         string:
-          "1" + String.fromCodePoint(fullwidthTildeCodePoint).repeat(2) + "2",
+          "1" +
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
+          "2",
         count: 2,
       },
       // 波ダッシュのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(waveDashCodePoint),
+        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT),
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(waveDashCodePoint).repeat(2),
+        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
         count: 2,
       },
       // 波ダッシュの前後にASCII文字
       // 文字列: "1～～2"
       {
-        string: "1" + String.fromCodePoint(waveDashCodePoint).repeat(2) + "2",
+        string:
+          "1" +
+          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
+          "2",
         count: 2,
       },
       // 全角チルダと波ダッシュの混在
       // 文字列: "～～～～"
       {
         string:
-          String.fromCodePoint(fullwidthTildeCodePoint).repeat(2) +
-          String.fromCodePoint(waveDashCodePoint).repeat(2),
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
+          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
         count: 4,
       },
       // 全角チルダと波ダッシュがない文字列
@@ -321,11 +327,215 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension.countFullwidthTildeAndWaveDash(content.string),
+        extension.countSpecificCharacters(content.string)
+          .waveDashAndFullwidthTilde,
         content.count,
         `content: ${content.string}`,
       );
     });
+  });
+
+  /**
+   * 全角NOに変換する関数をテストする
+   */
+  test("replace numero sigh", () => {
+    const contents = [
+      // 全角NOのみ
+      // 文字列: "№"
+      {
+        before: Buffer.from([0x8f, 0xa2, 0xf1]),
+        after: Buffer.from([0xad, 0xe2]),
+      },
+      // 文字列: "№№"
+      {
+        before: Buffer.from([0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xf1]),
+        after: Buffer.from([0xad, 0xe2, 0xad, 0xe2]),
+      },
+
+      // 全角NOの前後にASCII文字
+      // 文字列: "1№№2"
+      {
+        before: Buffer.from([0x31, 0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xf1, 0x32]),
+        after: Buffer.from([0x31, 0xad, 0xe2, 0xad, 0xe2, 0x32]),
+      },
+
+      // 全角NOを含まないECU-JPの文字列
+      // 文字列: "あ"
+      {
+        before: Buffer.from([0xa4, 0xa2]),
+        after: Buffer.from([0xa4, 0xa2]),
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension
+          .replaceSpecificCharactersInBuffer(content.before)
+          .toString("hex"),
+        content.after.toString("hex"),
+        `content: ${content.before.toString("hex")}`,
+      );
+    });
+  });
+
+  /**
+   * 全角NOの個数をカウントする関数をテストする
+   */
+  test("count numero sign", () => {
+    const contents = [
+      // 全角NOのみ
+      // 文字列: "№"
+      {
+        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+        count: 1,
+      },
+      // 文字列: "№№"
+      {
+        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+          2,
+        ),
+        count: 2,
+      },
+      // 全角NOの前後にASCII文字
+      // 文字列: "1№№2"
+      {
+        string:
+          "1" +
+          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(2) +
+          "2",
+        count: 2,
+      },
+      // 文字列: "№№"
+      {
+        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+          2,
+        ),
+        count: 2,
+      },
+      // 全角NOがない文字列
+      // 文字列: "あ"
+      {
+        string: "あ",
+        count: 0,
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension.countSpecificCharacters(content.string).numeroSign,
+        content.count,
+        `content: ${content.string}`,
+      );
+    });
+  });
+
+  /**
+   * すべての対象文字を含む文字列で、変換する関数をテストする
+   */
+  test("replace all target characters", () => {
+    const contents = [
+      // 文字列: "～№～"
+      {
+        before: Buffer.from([
+          0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1, 0x8f, 0xa2, 0xb7,
+        ]),
+        after: Buffer.from([0xa1, 0xc1, 0xad, 0xe2, 0xa1, 0xc1]),
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.strictEqual(
+        extension
+          .replaceSpecificCharactersInBuffer(content.before)
+          .toString("hex"),
+        content.after.toString("hex"),
+        `content: ${content.before.toString("hex")}`,
+      );
+    });
+  });
+
+  /**
+   * すべての対象文字を含む文字列で、個数をカウントする関数をテストする
+   */
+  test("count all target characters", () => {
+    const contents = [
+      // 文字列: "№№"
+      {
+        string:
+          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(1) +
+          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
+          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(4) +
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(8),
+        count: { waveDashAndFullwidthTilde: 10, numeroSign: 5 },
+      },
+    ];
+
+    contents.forEach((content) => {
+      assert.deepStrictEqual(
+        extension.countSpecificCharacters(content.string),
+        content.count,
+        `content: ${content.string}`,
+      );
+    });
+  });
+
+  /**
+   * 設定のtrue/falseによって、全角チルダを波ダッシュに変換する機能の有効/無効を切り替える関数をテストする
+   *
+   * replaceSpecificCharactersInBufferにはwaveDashUnify.enableConvertの設定値が反映されないため、
+   * このテストではreplaceSpecificCharactersInBufferによる変換結果への影響を確認しない
+   *
+   * waveDashUnify.enableConvertの設定値の影響確認は、統合テストで行う
+   */
+  test("config enable/disable convert", async () => {
+    const config = vscode.workspace.getConfiguration("waveDashUnify");
+    // ～№
+    const contents = Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xf1]);
+
+    async function configuration(
+      fullwidthTildeToWaveDash: boolean,
+      numeroSignToNumeroSign: boolean,
+    ) {
+      await config.update(
+        "fullwidthTildeToWaveDash",
+        fullwidthTildeToWaveDash,
+        vscode.ConfigurationTarget.Global,
+      );
+
+      await config.update(
+        "numeroSignToNumeroSign",
+        numeroSignToNumeroSign,
+        vscode.ConfigurationTarget.Global,
+      );
+    }
+
+    await configuration(true, true);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      Buffer.from([0xa1, 0xc1, 0xad, 0xe2]).toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
+    );
+
+    await configuration(true, false);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      Buffer.from([0xa1, 0xc1, 0x8f, 0xa2, 0xf1]).toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
+    );
+
+    await configuration(false, true);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      Buffer.from([0x8f, 0xa2, 0xb7, 0xad, 0xe2]).toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
+    );
+
+    await configuration(false, false);
+    assert.strictEqual(
+      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      contents.toString("hex"),
+      "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
+    );
   });
 
   /**
@@ -398,20 +608,24 @@ suite("Extension Test Suite", () => {
   /**
    * 全角チルダと波ダッシュの個数を数えた数がステータスバーに表示されることを確認する
    */
-  test("count fullwidth tilde and wave dash in active text editor", async () => {
-    const waveDashCodePoint = 0x301c;
-    const fullwidthTildeCodePoint = 0xff5e;
-
+  test("count fullwidth tilde, wave dash, and numero sign in active text editor", async () => {
     const waveDashCount = 3;
     const fullwidthTildeCount = 2;
+    const numeroSignCount = 4;
 
     // アクティブなテキストエディタを作り、そのテキストエディタのステータスバーに表示される項目を取得する
     const document = await vscode.workspace.openTextDocument({
       language: "plaintext",
       content:
-        String.fromCodePoint(fullwidthTildeCodePoint).repeat(
+        String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(
           fullwidthTildeCount,
-        ) + String.fromCodePoint(waveDashCodePoint).repeat(waveDashCount),
+        ) +
+        String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(
+          waveDashCount,
+        ) +
+        String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+          numeroSignCount,
+        ),
     });
 
     await vscode.window.showTextDocument(document);
@@ -432,8 +646,7 @@ suite("Extension Test Suite", () => {
 
     extension.updateStatusBarItem(statusBarItem);
 
-    const count = waveDashCount + fullwidthTildeCount;
-    const expectedText = `$(pass) 全角チルダ・波ダッシュ: ${count}`;
+    const expectedText = `$(pass) 全角チルダ・波ダッシュ: ${waveDashCount + fullwidthTildeCount}, 全角NO: ${numeroSignCount}`;
 
     // ステータスバーに表示される文字列が正しいことを確認する
     assert.strictEqual(statusBarItem.text, expectedText);

@@ -29,10 +29,13 @@
     "nofilter",
     "noninteractive",
     "nosources",
+    "numero",
+    "NUMERO",
     "reviewdog",
     "softprops",
     "vscodeignore",
     "vsix",
+    "WAVEDASH",
     "xauth",
     "xvfb",
     "yutotnh"
