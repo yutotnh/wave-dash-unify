@@ -27,12 +27,14 @@
   "contributes": {
     "commands": [
       {
+        "category": "Wave Dash Unify",
         "command": "waveDashUnify.enableConvert",
-        "title": "Wave Dash Unify: Enable convert to wave dash to fullwidth tilde"
+        "title": "Enable convert to wave dash to fullwidth tilde"
       },
       {
+        "category": "Wave Dash Unify",
         "command": "waveDashUnify.disableConvert",
-        "title": "Wave Dash Unify: Disable convert to wave dash to fullwidth tilde"
+        "title": "Disable convert to wave dash to fullwidth tilde"
       }
     ],
     "configuration": {
