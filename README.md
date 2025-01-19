@@ -46,10 +46,10 @@ sequenceDiagram
 
 ## Extension Settings
 
-- `waveDashUnify.enableConvert`: Enable convert to target characters
-- `waveDashUnify.fullwidthTildeToWaveDash`: Convert fullwidth tilde to wave dash
-- `waveDashUnify.numeroSignToNumeroSign`: Convert numero sign (0x8F 0xA2 0xF1) to numero sign (0xAD 0xE2)
-- `waveDashUnify.statusBarFormat`: The format of the status bar item
+- `waveDashUnify.enableConvert`: 文字の変換をします
+- `waveDashUnify.fullwidthTildeToWaveDash`: 全角チルダ (0x8F 0xA2 0xB7) を波ダッシュ (0xA1 0xC1) に変換します
+- `waveDashUnify.numeroSignToNumeroSign`: 全角NO (0x8F 0xA2 0xF1) を全角NO (0xAD 0xE2) に変換します
+- `waveDashUnify.statusBarFormat`: ステータス バーのフォーマット
 
 ## Known Issues
 
