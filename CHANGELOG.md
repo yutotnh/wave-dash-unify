@@ -6,6 +6,29 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.3.1]
+
+## What's Changed
+
+### Exciting New Features 🎉
+
+- feat: 日本語のローカライズを追加し、設定説明を更新 by @yutotnh in [#442](https://github.com/yutotnh/wave-dash-unify/pull/442)
+
+### Other Changes
+
+- build(deps-dev): bump @types/node from 22.10.2 to 22.10.3 by @dependabot in [#431](https://github.com/yutotnh/wave-dash-unify/pull/431)
+- build(deps-dev): bump @types/node from 22.10.3 to 22.10.4 by @dependabot in [#432](https://github.com/yutotnh/wave-dash-unify/pull/432)
+- build(deps-dev): bump @types/node from 22.10.4 to 22.10.5 by @dependabot in [#433](https://github.com/yutotnh/wave-dash-unify/pull/433)
+- build(deps-dev): bump typescript from 5.7.2 to 5.7.3 by @dependabot in [#434](https://github.com/yutotnh/wave-dash-unify/pull/434)
+- build(deps-dev): bump ts-loader from 9.5.1 to 9.5.2 by @dependabot in [#435](https://github.com/yutotnh/wave-dash-unify/pull/435)
+- build(deps-dev): bump eslint-config-prettier from 9.1.0 to 10.0.1 by @dependabot in [#438](https://github.com/yutotnh/wave-dash-unify/pull/438)
+- build(deps-dev): bump @types/node from 22.10.5 to 22.10.6 by @dependabot in [#439](https://github.com/yutotnh/wave-dash-unify/pull/439)
+- build(deps-dev): bump cspell from 8.17.1 to 8.17.2 by @dependabot in [#437](https://github.com/yutotnh/wave-dash-unify/pull/437)
+- build(deps-dev): bump @types/node from 22.10.6 to 22.10.7 by @dependabot in [#440](https://github.com/yutotnh/wave-dash-unify/pull/440)
+- feat: add category to Wave Dash Unify commands by @yutotnh in [#441](https://github.com/yutotnh/wave-dash-unify/pull/441)
+
+**Full Changelog**: https://github.com/yutotnh/wave-dash-unify/compare/v0.3.0...v0.3.1
+
 ## [0.3.0]
 
 ## What's Changed
