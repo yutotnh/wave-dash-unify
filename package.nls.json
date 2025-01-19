@@ -1,0 +1,8 @@
+{
+  "waveDashUnify.enableConvert.title": "Enable character conversion",
+  "waveDashUnify.disableConvert.title": "Disable character conversion",
+  "waveDashUnify.enableConvert.description": "Enable character conversion.",
+  "waveDashUnify.fullwidthTildeToWaveDash.description": "Convert fullwidth tilde (0x8F 0xA2 0xB7) to wave dash (0xA1 0xC1).\nThis setting is effective only when the 'waveDashUnify.enableConvert' is true.",
+  "waveDashUnify.numeroSignToNumeroSign.description": "Convert numero sign (0x8F 0xA2 0xF1) to numero sign (0xAD 0xE2).\nThis setting is effective only when the 'waveDashUnify.enableConvert' is true.",
+  "waveDashUnify.statusBarFormat.markdownDescription": "The format of the status bar item.\n\nAvailable variables:\n- ${statusIcon}: Icons indicating conversion enable/disable\n- ${waveDashAndFullwidthTildeCount}: The number of wave dash and fullwidth tilde characters in the active editor\n- ${numeroSignCount}: The number of numero sign characters in the active editor"
+}

@@ -1,0 +1,8 @@
+{
+  "waveDashUnify.enableConvert.title": "文字の変換を有効にする",
+  "waveDashUnify.disableConvert.title": "文字の変換を無効にする",
+  "waveDashUnify.enableConvert.description": "文字の変換をします。",
+  "waveDashUnify.fullwidthTildeToWaveDash.description": "全角チルダ (0x8F 0xA2 0xB7) を波ダッシュ (0xA1 0xC1) に変換します。\nこの設定は、'waveDashUnify.enableConvert' が true の場合のみ有効です。",
+  "waveDashUnify.numeroSignToNumeroSign.description": "全角NO (0x8F 0xA2 0xF1) を全角NO (0xAD 0xE2) に変換します。\nこの設定は、'waveDashUnify.enableConvert' が true の場合のみ有効です。",
+  "waveDashUnify.statusBarFormat.markdownDescription": "ステータス バーのフォーマット。\n\n利用可能な変数:\n- ${statusIcon}: 変換の有効/無効を示すアイコン\n- ${waveDashAndFullwidthTildeCount}: アクティブなエディター内の波ダッシュと全角チルダの数\n- ${numeroSignCount}: アクティブなエディター内の全角NOの数"
+}

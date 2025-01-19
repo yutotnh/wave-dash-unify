@@ -29,12 +29,12 @@
       {
         "category": "Wave Dash Unify",
         "command": "waveDashUnify.enableConvert",
-        "title": "Enable convert to wave dash to fullwidth tilde"
+        "title": "%waveDashUnify.enableConvert.title%"
       },
       {
         "category": "Wave Dash Unify",
         "command": "waveDashUnify.disableConvert",
-        "title": "Disable convert to wave dash to fullwidth tilde"
+        "title": "%waveDashUnify.disableConvert.title%"
       }
     ],
     "configuration": {
@@ -43,22 +43,22 @@
         "waveDashUnify.enableConvert": {
           "type": "boolean",
           "default": true,
-          "description": "Enable convert to target characters."
+          "description": "%waveDashUnify.enableConvert.description%"
         },
         "waveDashUnify.fullwidthTildeToWaveDash": {
           "type": "boolean",
           "default": true,
-          "description": "Convert fullwidth tilde (0x8F 0xA2 0xB7) to wave dash (0xA1 0xC1).\nThis setting is effective only when the 'waveDashUnify.enableConvert' is true."
+          "description": "%waveDashUnify.fullwidthTildeToWaveDash.description%"
         },
         "waveDashUnify.numeroSignToNumeroSign": {
           "type": "boolean",
           "default": true,
-          "description": "Convert numero sign (0x8F 0xA2 0xF1) to numero sign (0xAD 0xE2)\nThis setting is effective only when the 'waveDashUnify.enableConvert' is true."
+          "description": "%waveDashUnify.numeroSignToNumeroSign.description%"
         },
         "waveDashUnify.statusBarFormat": {
           "type": "string",
           "default": "${statusIcon} ～: ${waveDashAndFullwidthTildeCount}, №: ${numeroSignCount}",
-          "markdownDescription": "The format of the status bar item.\n\nAvailable variables:\n- ${statusIcon}: The icon of the status bar item.\n- ${waveDashAndFullwidthTildeCount}: The number of wave dash and fullwidth tilde characters in the active editor.\n- ${numeroSignCount}: The number of numero sign characters in the active editor."
+          "markdownDescription": "%waveDashUnify.statusBarFormat.markdownDescription%"
         }
       }
     }
