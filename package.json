@@ -90,7 +90,7 @@
     "@vscode/vsce": "^3.3.2",
     "cspell": "^8.18.1",
     "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.1.1",
+    "eslint-config-prettier": "^10.1.2",
     "glob": "^8.1.0",
     "mocha": "^11.1.0",
     "prettier": "^3.5.3",
