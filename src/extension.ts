@@ -1,12 +1,15 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as encoding from "encoding-japanese";
+import * as path from "path";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
 export const NUMERO_SIGN_CODE_POINT = 0x2116;
 
 let statusBarItem: vscode.StatusBarItem;
+
+const logOutputChannel = vscode.window.createOutputChannel('Wave Dash Unify', { log: true });
 
 export function activate(context: vscode.ExtensionContext) {
   setupStatusBarItem();
@@ -111,16 +114,107 @@ export function replaceSpecificCharacters(filePath: string) {
     return;
   }
 
-  const convertedString = replaceSpecificCharactersInBuffer(content);
+  const converted = replaceSpecificCharactersInBuffer(content);
 
   // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
   // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
+  // 高速化のため、長さが異なることのチェックを先に行う
   // TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
-  if (Buffer.compare(convertedString, content) === 0) {
+  if (converted.length === content.length && Buffer.compare(converted, content) === 0) {
     return;
   }
 
-  fs.writeFileSync(filePath, convertedString, { flag: "w" });
+  const originalMode = getFileMode(filePath);
+  try {
+    atomicWriteFileSync(filePath, converted, originalMode);
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      `ファイルの変換に失敗しました: ${error}`,
+    );
+  }
+}
+
+/**
+ * ファイルの内容をアトミックに置き換える
+ *
+ * 元のファイルパーミッションを保持。
+ *
+ * @param filePath - 対象ファイルのパス
+ * @param data - 変換後のバッファ
+ * @param originalMode - 元ファイルのパーミッションビット (任意)
+ */
+function atomicWriteFileSync(
+  filePath: string,
+  data: Buffer,
+  originalMode?: number,
+): void {
+  // 同じファイルシステムにあることを前提にしているため、
+  // 同じディレクトリ内で一時ファイルを作成する
+  // 一時ファイルの名前は、元のファイル名に".tmp-"と現在時刻を付加したもの
+  // 例: "example.txt" -> "example.txt.tmp-1234567890"
+  const dir = path.dirname(filePath);
+  const base = path.basename(filePath);
+  const tmpName = `${base}.tmp-${Date.now()}`;
+  const tmpPath = path.join(dir, tmpName);
+
+  try {
+    fs.writeFileSync(tmpPath, data);
+  } catch (error) {
+    logOutputChannel.error(`一時ファイル${tmpPath}の書き込みに失敗しました: ${error}`);
+    throw error;
+  }
+
+  if (typeof originalMode === 'number') {
+    try {
+      fs.chmodSync(tmpPath, originalMode);
+    } catch (error) {
+      logOutputChannel.error(`一時ファイル${tmpPath}のパーミッション変更に失敗しました: ${error}`);
+
+      // パーミッション変更失敗時は、変換処理を終了する
+      // 終了すると一時ファイルが必要なくなるので、削除する
+      if (fs.existsSync(tmpPath)) {
+        try {
+          fs.unlinkSync(tmpPath);
+        } catch (cleanupError) {
+          logOutputChannel.error(`Failed to clean up temporary file: ${tmpPath}`, cleanupError);
+        }
+      }
+      throw error;
+    }
+  }
+
+  // 一時ファイルをリネームしてアトミックに置き換え
+  // 特に問題はないと思うのでメタデータは一時ファイルのものをそのまま使用する
+  try {
+    fs.renameSync(tmpPath, filePath);
+  } catch (error) {
+    logOutputChannel.error(`元ファイル${filePath}の置き換えに失敗しました: ${error}`);
+    // 一時ファイルを削除
+    if (fs.existsSync(tmpPath)) {
+      try {
+        fs.unlinkSync(tmpPath);
+      } catch (cleanupError) {
+        logOutputChannel.error(`Failed to clean up temporary file: ${tmpPath}`, cleanupError);
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * ファイルのパーミッションを取得する
+ *
+ * @param filePath - ファイルのパス
+ * @returns パーミッションビット (例: 0o644)
+ */
+function getFileMode(filePath: string): number {
+  try {
+    const stat = fs.statSync(filePath);
+    return stat.mode & 0o777;
+  } catch (error) {
+    logOutputChannel.error(`Failed to get file mode for ${filePath}: ${error}`);
+    throw error;
+  }
 }
 
 /**
