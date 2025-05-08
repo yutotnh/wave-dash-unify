@@ -1,6 +1,10 @@
 import * as path from "path";
 
-import { runTests, downloadAndUnzipVSCode, TestOptions } from "@vscode/test-electron";
+import {
+  runTests,
+  downloadAndUnzipVSCode,
+  TestOptions,
+} from "@vscode/test-electron";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
@@ -19,10 +23,10 @@ function parseCliArgs() {
     .parseSync();
 
   return {
-    vscodeVersion: typeof argv.vscodeVersion === "string" ? argv.vscodeVersion : undefined,
+    vscodeVersion:
+      typeof argv.vscodeVersion === "string" ? argv.vscodeVersion : undefined,
   };
 }
-
 
 async function main() {
   try {
@@ -35,7 +39,10 @@ async function main() {
     const extensionTestsPath = path.resolve(__dirname, "./suite/index");
 
     const { vscodeVersion } = parseCliArgs();
-    const options: TestOptions = { extensionDevelopmentPath, extensionTestsPath };
+    const options: TestOptions = {
+      extensionDevelopmentPath,
+      extensionTestsPath,
+    };
     console.log(`Using VS Code version: ${vscodeVersion}`);
     if (vscodeVersion) {
       // 指定バージョンのキャッシュがあれば再利用し、なければダウンロード
