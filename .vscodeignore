@@ -6,7 +6,7 @@ out/**
 node_modules/**
 src/**
 .gitignore
-.yarnrc
+.npmrc
 webpack.config.js
 **/tsconfig.json
 **/.eslintrc.json

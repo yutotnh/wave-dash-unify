@@ -64,6 +64,7 @@
     }
   },
   "scripts": {
+    "vscode:package": "vsce package",
     "vscode:prepublish": "npm run package",
     "vscode:publish": "vsce publish",
     "compile": "webpack",
@@ -74,6 +75,7 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "format": "prettier --write .",
+    "format-check": "prettier --check .",
     "test": "node ./out/test/runTest.js",
     "spellcheck": "cspell ."
   },
@@ -84,6 +86,7 @@
     "@types/node": "22.x",
     "@types/tmp": "^0.2.6",
     "@types/vscode": "^1.78.1",
+    "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "@vscode/test-electron": "^2.5.2",
@@ -98,7 +101,8 @@
     "ts-loader": "^9.5.2",
     "typescript": "^5.8.3",
     "webpack": "^5.99.8",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^6.0.1",
+    "yargs": "^17.7.2"
   },
   "dependencies": {
     "encoding-japanese": "^2.2.0"

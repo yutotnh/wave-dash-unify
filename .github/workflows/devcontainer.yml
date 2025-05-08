@@ -24,7 +24,7 @@ jobs:
             set -e
 
             # Install dependencies
-            yarn install
+            npm install
 
             # Execute a test
-            xvfb-run -a yarn test
+            xvfb-run -a npm test
