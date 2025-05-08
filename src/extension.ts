@@ -9,7 +9,9 @@ export const NUMERO_SIGN_CODE_POINT = 0x2116;
 
 let statusBarItem: vscode.StatusBarItem;
 
-const logOutputChannel = vscode.window.createOutputChannel('Wave Dash Unify', { log: true });
+const logOutputChannel = vscode.window.createOutputChannel("Wave Dash Unify", {
+  log: true,
+});
 
 export function activate(context: vscode.ExtensionContext) {
   setupStatusBarItem();
@@ -120,7 +122,10 @@ export function replaceSpecificCharacters(filePath: string) {
   // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
   // 高速化のため、長さが異なることのチェックを先に行う
   // TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
-  if (converted.length === content.length && Buffer.compare(converted, content) === 0) {
+  if (
+    converted.length === content.length &&
+    Buffer.compare(converted, content) === 0
+  ) {
     return;
   }
 
@@ -128,9 +133,7 @@ export function replaceSpecificCharacters(filePath: string) {
   try {
     atomicWriteFileSync(filePath, converted, originalMode);
   } catch (error) {
-    vscode.window.showErrorMessage(
-      `ファイルの変換に失敗しました: ${error}`,
-    );
+    vscode.window.showErrorMessage(`ファイルの変換に失敗しました: ${error}`);
   }
 }
 
@@ -160,15 +163,19 @@ function atomicWriteFileSync(
   try {
     fs.writeFileSync(tmpPath, data);
   } catch (error) {
-    logOutputChannel.error(`一時ファイル${tmpPath}の書き込みに失敗しました: ${error}`);
+    logOutputChannel.error(
+      `一時ファイル${tmpPath}の書き込みに失敗しました: ${error}`,
+    );
     throw error;
   }
 
-  if (typeof originalMode === 'number') {
+  if (typeof originalMode === "number") {
     try {
       fs.chmodSync(tmpPath, originalMode);
     } catch (error) {
-      logOutputChannel.error(`一時ファイル${tmpPath}のパーミッション変更に失敗しました: ${error}`);
+      logOutputChannel.error(
+        `一時ファイル${tmpPath}のパーミッション変更に失敗しました: ${error}`,
+      );
 
       // パーミッション変更失敗時は、変換処理を終了する
       // 終了すると一時ファイルが必要なくなるので、削除する
@@ -176,7 +183,10 @@ function atomicWriteFileSync(
         try {
           fs.unlinkSync(tmpPath);
         } catch (cleanupError) {
-          logOutputChannel.error(`Failed to clean up temporary file: ${tmpPath}`, cleanupError);
+          logOutputChannel.error(
+            `Failed to clean up temporary file: ${tmpPath}`,
+            cleanupError,
+          );
         }
       }
       throw error;
@@ -188,13 +198,18 @@ function atomicWriteFileSync(
   try {
     fs.renameSync(tmpPath, filePath);
   } catch (error) {
-    logOutputChannel.error(`元ファイル${filePath}の置き換えに失敗しました: ${error}`);
+    logOutputChannel.error(
+      `元ファイル${filePath}の置き換えに失敗しました: ${error}`,
+    );
     // 一時ファイルを削除
     if (fs.existsSync(tmpPath)) {
       try {
         fs.unlinkSync(tmpPath);
       } catch (cleanupError) {
-        logOutputChannel.error(`Failed to clean up temporary file: ${tmpPath}`, cleanupError);
+        logOutputChannel.error(
+          `Failed to clean up temporary file: ${tmpPath}`,
+          cleanupError,
+        );
       }
     }
     throw error;
