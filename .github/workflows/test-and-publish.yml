@@ -33,7 +33,7 @@ jobs:
         if: runner.os != 'Linux'
       - name: Publish
         if: success() && startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
-        run: npm vscode:publish
+        run: npm run vscode:publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
       - name: Create package
@@ -43,3 +43,21 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: wave-dash-unify-*.vsix
+
+  test-minimum-vscode-version:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ./.node-version
+      - run: npm install
+      - run: xvfb-run -a npm test -- --minimum-vscode-version 1.66.0
+        if: runner.os == 'Linux'
+      - run: npm test -- --minimum-vscode-version 1.66.0
+        if: runner.os != 'Linux'
