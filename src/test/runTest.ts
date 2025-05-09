@@ -43,11 +43,9 @@ async function main() {
       extensionDevelopmentPath,
       extensionTestsPath,
     };
-    console.log(`Using VS Code version: ${vscodeVersion}`);
     if (vscodeVersion) {
       // 指定バージョンのキャッシュがあれば再利用し、なければダウンロード
       const execPath = await downloadAndUnzipVSCode(vscodeVersion);
-      console.log(`VS Code executable path: ${execPath}`);
       options.vscodeExecutablePath = execPath;
     }
 
