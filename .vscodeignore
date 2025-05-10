@@ -15,4 +15,4 @@ webpack.config.js
 .prettierignore
 .cspell.json
 doc/overwrite-error.png
-.node-version
+.nvmrc

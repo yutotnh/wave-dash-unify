@@ -25,7 +25,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: ./.node-version
+          node-version-file: ./.nvmrc
       - run: npm install
       - run: xvfb-run -a npm test
         if: runner.os == 'Linux'
@@ -55,7 +55,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: ./.node-version
+          node-version-file: ./.nvmrc
       - run: npm install
       - run: xvfb-run -a npm test -- --minimum-vscode-version 1.100.0
         if: runner.os == 'Linux'
