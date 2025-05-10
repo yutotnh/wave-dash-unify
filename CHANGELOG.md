@@ -6,6 +6,17 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.3.2]
+
+## What's Changed
+
+### Other Changes
+
+- refactor: yarnからnpmに移行 #498 by @yutotnh in [#509](https://github.com/yutotnh/wave-dash-unify/pull/509)
+- chore: VS Codeのサポートバージョンを1.66.0以降に変更 by @yutotnh in [#509](https://github.com/yutotnh/wave-dash-unify/pull/509)
+
+**Full Changelog**: https://github.com/yutotnh/wave-dash-unify/compare/v0.3.1...v0.3.2
+
 ## [0.3.1]
 
 ## What's Changed
