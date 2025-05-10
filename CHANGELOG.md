@@ -11,7 +11,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## What's Changed
 
 ### Other Changes
-* feat: 変換処理の時間を短くする by @yutotnh in [#517](https://github.com/yutotnh/wave-dash-unify/pull/517)
+
+- feat: 変換処理の時間を短くする by @yutotnh in [#517](https://github.com/yutotnh/wave-dash-unify/pull/517)
 
 **Full Changelog**: https://github.com/yutotnh/wave-dash-unify/compare/v0.3.2...v0.4.0
 
