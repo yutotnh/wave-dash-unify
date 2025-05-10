@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
       ),
       // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
       vscode.workspace.onDidSaveTextDocument((document) => {
-        replaceSpecificCharacters(document.fileName);
+        replaceSpecificCharacters(document);
       }),
       // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
       vscode.window.onDidChangeActiveTextEditor(() => {
@@ -100,16 +100,30 @@ export function activate(context: vscode.ExtensionContext) {
  * @param filePath 変換対象のファイルのパス
  * @returns 変換後の文字列
  */
-export function replaceSpecificCharacters(filePath: string) {
+export function replaceSpecificCharacters(document: vscode.TextDocument) {
   if (!isConvertEnabled()) {
     return;
   }
 
-  const content = fs.readFileSync(filePath);
+  let content: Buffer;
 
-  if (!isEUCJP(content)) {
-    return;
+  // VS Code 1.100.0以降: TextDocument.encodingが使える
+  if (typeof document.encoding === "string") {
+    if (!isEUCJP(document)) {
+      return;
+    }
+    // エンコードするよりも、ファイルを直接読み込んだ方が早い
+    // EUC-JPでなければ、読まなくていいので判定後に読み込む
+    // content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
+    content = fs.readFileSync(document.fileName);
+
+  } else {
+    content = fs.readFileSync(document.fileName);
+    if (!isEUCJP(content)) {
+      return;
+    }
   }
+
 
   const convertedString = replaceSpecificCharactersInBuffer(content);
 
@@ -120,7 +134,7 @@ export function replaceSpecificCharacters(filePath: string) {
     return;
   }
 
-  fs.writeFileSync(filePath, convertedString, { flag: "w" });
+  fs.writeFileSync(document.fileName, convertedString, { flag: "w" });
 }
 
 /**
@@ -137,13 +151,22 @@ export function isConvertEnabled(): boolean {
 /**
  * ファイルの文字コードがEUC-JPかを判定する
  *
+ * VS Code 1.100.0以降ではTextDocument.encodingで判定する。
  * ASCIIのみのファイルもEUC-JPと判定される
  *
- * @param str 判定する文字列
+ * @param str 判定する文字列またはTextDocument
  * @returns `true`: EUC-JP, `false`: EUC-JP以外
  */
-export function isEUCJP(str: Buffer): boolean {
-  return encoding.detect(str, "EUCJP") === "EUCJP";
+export function isEUCJP(str: Buffer | vscode.TextDocument): boolean {
+  // VS Code 1.100.0以降: TextDocument.encodingが使える
+  if (
+    typeof (str as vscode.TextDocument).encoding === "string"
+  ) {
+    return (str as vscode.TextDocument).encoding === "eucjp";
+  }
+
+  // VS Code 1.100.0以前: エンコーディングの推測の結果から判定する
+  return encoding.detect(str as Buffer, "EUCJP") === "EUCJP";
 }
 
 /**

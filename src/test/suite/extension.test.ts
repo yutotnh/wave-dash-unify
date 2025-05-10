@@ -6,7 +6,6 @@ import * as tmp from "tmp";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
-// import * as myExtension from '../../extension';
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -185,7 +184,7 @@ suite("Extension Test Suite", () => {
   /**
    * 文字列がEUC-JPかを判定する関数をテストする
    */
-  test("detect EUC-JP", () => {
+  test("detect EUC-JP", async () => {
     const eucjpContents = [
       // 全角チルダのみ
       // 文字列: "～"
@@ -237,6 +236,35 @@ suite("Extension Test Suite", () => {
         `content: ${content.toString("hex")}`,
       );
     });
+
+    // VS Code 1.100.0以降でのみTextDocument.encodingで判定する
+    // 本拡張機能の最小サポートバージョンは1.100.0未満なので、
+    // 実行環境が1.100.0以降のバージョンのときのみテストする
+    const vscodeVersion = vscode.version.split('.').map(Number);
+    const isVscodeEncodingApiAvailable =
+      vscodeVersion[0] > 1 || (vscodeVersion[0] === 1 && vscodeVersion[1] >= 100);
+
+    if (isVscodeEncodingApiAvailable) {
+      const eucjpDocument = await vscode.workspace.openTextDocument({
+        content: "あ", // 文字列は何でも良い
+        encoding: "eucjp",
+      });
+      assert.strictEqual(
+        extension.isEUCJP(eucjpDocument),
+        true,
+        `document: ${eucjpDocument.getText()}`,
+      );
+
+      const notEucjpDocument = await vscode.workspace.openTextDocument({
+        content: "い", // 文字列は何でも良い
+        encoding: "utf8",
+      });
+      assert.strictEqual(
+        extension.isEUCJP(notEucjpDocument),
+        false,
+        `document: ${notEucjpDocument.getText()}`,
+      );
+    }
   });
 
   /**
