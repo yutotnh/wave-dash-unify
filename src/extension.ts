@@ -160,14 +160,14 @@ export function isEUCJP(str: Buffer): boolean {
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-  const replacements: { [key: string]: Buffer } = {};
+  const replacements: Map<string, Buffer> = new Map();
 
   if (config.get("fullwidthTildeToWaveDash")) {
-    replacements["8fa2b7"] = Buffer.from([0xa1, 0xc1]); // 全角チルダ -> 波ダッシュ
+    replacements.set("8fa2b7", Buffer.from([0xa1, 0xc1])); // 全角チルダ -> 波ダッシュ
   }
 
   if (config.get("numeroSignToNumeroSign")) {
-    replacements["8fa2f1"] = Buffer.from([0xad, 0xe2]); // 全角NO -> 全角NO
+    replacements.set("8fa2f1", Buffer.from([0xad, 0xe2])); // 全角NO -> 全角NO
   }
 
   const convertedString: number[] = [];
@@ -176,12 +176,14 @@ export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
   while (i < str.length) {
     let replaced = false;
 
-    for (const [key, value] of Object.entries(replacements)) {
-      const keyBuffer = Buffer.from(key, "hex");
-
-      if (str.subarray(i, i + keyBuffer.length).equals(keyBuffer)) {
+    for (const [key, value] of replacements) {
+      const keyLength = key.length / 2; // Each hex character represents half a byte
+      if (
+        str.length - i >= keyLength &&
+        str.toString("hex", i, i + keyLength) === key
+      ) {
         convertedString.push(...value);
-        i += keyBuffer.length;
+        i += keyLength;
         replaced = true;
         break;
       }
