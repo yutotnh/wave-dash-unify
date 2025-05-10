@@ -5,7 +5,7 @@
   "version": "0.3.2",
   "publisher": "yutotnh",
   "engines": {
-    "vscode": "^1.66.0"
+    "vscode": "^1.100.0"
   },
   "categories": [
     "Other"
@@ -80,12 +80,11 @@
     "spellcheck": "cspell ."
   },
   "devDependencies": {
-    "@types/encoding-japanese": "^2.2.1",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/tmp": "^0.2.6",
-    "@types/vscode": "^1.66.0",
+    "@types/vscode": "^1.100.0",
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
@@ -103,8 +102,5 @@
     "webpack": "^5.99.8",
     "webpack-cli": "^6.0.1",
     "yargs": "^17.7.2"
-  },
-  "dependencies": {
-    "encoding-japanese": "^2.2.0"
   }
 }

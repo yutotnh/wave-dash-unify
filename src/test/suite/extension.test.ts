@@ -6,7 +6,6 @@ import * as tmp from "tmp";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
-// import * as myExtension from '../../extension';
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -185,58 +184,26 @@ suite("Extension Test Suite", () => {
   /**
    * 文字列がEUC-JPかを判定する関数をテストする
    */
-  test("detect EUC-JP", () => {
-    const eucjpContents = [
-      // 全角チルダのみ
-      // 文字列: "～"
-      Buffer.from([0x8f, 0xa2, 0xb7]),
-      // 文字列: "～～"
-      Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xb7]),
-
-      // 全角チルダの前にASCII文字
-      // 文字列: "1～～"
-      Buffer.from([0xad, 0xa1]),
-
-      // CP51932のテキスト
-      // 文字列: 髙
-      Buffer.from([0xfc, 0xe2, 0x0a]),
-
-      // CP51932のテキスト
-      // 文字列: ①
-      Buffer.from([0xad, 0xa1]),
-    ];
-
-    eucjpContents.forEach((content) => {
-      assert.strictEqual(
-        extension.isEUCJP(content),
-        true,
-        `content: ${content.toString("hex")}`,
-      );
+  test("detect EUC-JP", async () => {
+    const eucjpDocument = await vscode.workspace.openTextDocument({
+      content: "あ", // 文字列は何でも良い
+      encoding: "eucjp",
     });
+    assert.strictEqual(
+      extension.isEUCJP(eucjpDocument),
+      true,
+      `document: ${eucjpDocument.getText()}`,
+    );
 
-    const notEucjpContents = [
-      // ASCIIのみのテキストはEUC-JPと判断されるため、テストしない
-      // 文字列: 123
-      // Buffer.from([0x31, 0x32, 0x33]),
-
-      // Shift-JISのテキスト
-      // 文字列: こんにちは
-      Buffer.from([0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd]),
-
-      // UTF-8のテキスト
-      // 文字列: よろしく
-      Buffer.from([
-        0xe3, 0x82, 0x88, 0xe3, 0x82, 0x8d, 0xe3, 0x81, 0x97, 0xe3, 0x81, 0x8f,
-      ]),
-    ];
-
-    notEucjpContents.forEach((content) => {
-      assert.strictEqual(
-        extension.isEUCJP(content),
-        false,
-        `content: ${content.toString("hex")}`,
-      );
+    const notEucjpDocument = await vscode.workspace.openTextDocument({
+      content: "い", // 文字列は何でも良い
+      encoding: "utf8",
     });
+    assert.strictEqual(
+      extension.isEUCJP(notEucjpDocument),
+      false,
+      `document: ${notEucjpDocument.getText()}`,
+    );
   });
 
   /**
