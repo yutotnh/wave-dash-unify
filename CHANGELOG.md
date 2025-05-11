@@ -6,6 +6,16 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.3.3]
+
+## What's Changed
+
+### Other Changes
+
+- feat: 置き換え処理でオブジェクトからMapに変更し、パフォーマンスを向上 #13 by @yutotnh in [#521](https://github.com/yutotnh/wave-dash-unify/pull/521)
+
+**Full Changelog**: https://github.com/yutotnh/wave-dash-unify/compare/v0.3.2...v0.3.3
+
 ## [0.3.2]
 
 ## What's Changed
