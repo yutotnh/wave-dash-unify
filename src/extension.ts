@@ -116,7 +116,11 @@ export function replaceSpecificCharacters(document: vscode.TextDocument) {
   // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
   // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
   // TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
-  if (Buffer.compare(convertedString, content) === 0) {
+  // 変換対象がない場合は入力のBufferがそのまま返るため、比較せずに終了できる
+  if (
+    convertedString === content ||
+    Buffer.compare(convertedString, content) === 0
+  ) {
     return;
   }
 
@@ -162,42 +166,57 @@ export function isEUCJP(str: vscode.TextDocument): boolean {
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-  const replacements: Map<string, Buffer> = new Map();
+  const convertsFullwidthTilde = config.get(
+    "fullwidthTildeToWaveDash",
+  ) as boolean;
+  const convertsNumeroSign = config.get("numeroSignToNumeroSign") as boolean;
 
-  if (config.get("fullwidthTildeToWaveDash")) {
-    replacements.set("8fa2b7", Buffer.from([0xa1, 0xc1])); // 全角チルダ -> 波ダッシュ
+  if (!convertsFullwidthTilde && !convertsNumeroSign) {
+    return str;
   }
 
-  if (config.get("numeroSignToNumeroSign")) {
-    replacements.set("8fa2f1", Buffer.from([0xad, 0xe2])); // 全角NO -> 全角NO
-  }
+  // 変換対象はいずれも 0x8F 0xA2 で始まる3バイト列のため、
+  // ネイティブ実装で高速な indexOf で先頭バイトの候補位置だけを走査する
+  const SS3 = 0x8f; // EUC-JPのシングルシフト(SS3)バイト。変換対象の先頭バイト
 
-  const convertedString: number[] = [];
-  let i = 0;
+  let converted: Buffer | undefined;
+  let writePos = 0; // convertedへの書き込み済み位置
+  let copiedPos = 0; // strのコピー済み位置
+  let i = str.indexOf(SS3);
 
-  while (i < str.length) {
-    let replaced = false;
+  while (i !== -1 && i + 2 < str.length) {
+    let replacement: [number, number] | undefined;
 
-    for (const [key, value] of replacements) {
-      const keyLength = key.length / 2; // Each hex character represents half a byte
-      if (
-        str.length - i >= keyLength &&
-        str.toString("hex", i, i + keyLength) === key
-      ) {
-        convertedString.push(...value);
-        i += keyLength;
-        replaced = true;
-        break;
+    if (str[i + 1] === 0xa2) {
+      if (convertsFullwidthTilde && str[i + 2] === 0xb7) {
+        replacement = [0xa1, 0xc1]; // 全角チルダ -> 波ダッシュ
+      } else if (convertsNumeroSign && str[i + 2] === 0xf1) {
+        replacement = [0xad, 0xe2]; // 全角NO -> 全角NO
       }
     }
 
-    if (!replaced) {
-      convertedString.push(str[i]);
-      i++;
+    if (replacement) {
+      // 3バイトを2バイトに置き換えるため、変換後は元の長さを超えない
+      converted ??= Buffer.allocUnsafe(str.length);
+
+      writePos += str.copy(converted, writePos, copiedPos, i);
+      converted[writePos++] = replacement[0];
+      converted[writePos++] = replacement[1];
+      copiedPos = i + 3;
+      i = str.indexOf(SS3, copiedPos);
+    } else {
+      i = str.indexOf(SS3, i + 1);
     }
   }
 
-  return Buffer.from(convertedString);
+  // 変換対象が1つもなければ、入力のBufferをそのまま返す
+  if (!converted) {
+    return str;
+  }
+
+  writePos += str.copy(converted, writePos, copiedPos);
+
+  return converted.subarray(0, writePos);
 }
 
 /**
