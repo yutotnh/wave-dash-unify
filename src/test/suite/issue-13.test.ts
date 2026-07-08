@@ -16,17 +16,14 @@ import * as vscode from "vscode";
  * 「ファイルの内容と一致しない」と判断し、TextDocument.save() が false を返す
  * (エディター上は「上書きに失敗しました」といったエラーになる)ことがある。
  *
- * このテストは、現状の実装ではこのバグが再現する(=30回連続保存のうち1回でも
- * save() が false を返す)ことを確認するために作成した。
+ * 修正前の実装ではこのバグが再現する(=30回連続保存のうち1回でも
+ * save() が false を返す)ことを、このテストで確認済み。
  *
- * 修正後は、連続保存を行っても save() が常に true を返すようになることを期待している。
- * そのため、このテストの本来の目的は「全ての save() が true になること」を検証することだが、
- * 現状の実装ではこの assert は失敗する(=バグが再現する)ため、
- * CI を壊さないよう当面 test.skip としている。
- * issue #13 を修正した際は、下記の test.skip を test に戻して有効化すること。
+ * 保存後の変換をデバウンスする修正により、連続保存中は拡張機能による
+ * ファイル書き換えが発生しなくなったため、save() は常に true を返す。
  */
 suite("Issue #13: 保存後のファイル書き換えによる連続保存の失敗", () => {
-  test.skip("issue #13: EUC-JPファイルに全角チルダが含まれる状態で高速に連続保存すると、save()がfalseを返すことなく全て成功する", async function () {
+  test("issue #13: EUC-JPファイルに全角チルダが含まれる状態で高速に連続保存すると、save()がfalseを返すことなく全て成功する", async function () {
     this.timeout(60000);
 
     const waveDashUnifyConfig =
@@ -112,6 +109,30 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
       failedAttempts.length,
       0,
       `連続保存によりsave()がfalseを返した(issue #13が再現した): ${failedAttempts.length}/${ATTEMPTS}回失敗`,
+    );
+
+    // 保存が落ち着いた後、デバウンスされていた変換が実行されて
+    // ディスク上の全角チルダ(0x8F 0xA2 0xB7)が波ダッシュ(0xA1 0xC1)に変換されることを確認する
+    // 文字列: "ああああ～" + "a" * ATTEMPTS
+    const expectedContent = Buffer.concat([
+      Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa1, 0xc1]),
+      Buffer.from("a".repeat(ATTEMPTS)),
+    ]);
+
+    const deadline = Date.now() + 5000;
+    let actualContent = fs.readFileSync(tmpFile.name);
+    while (
+      Date.now() < deadline &&
+      Buffer.compare(actualContent, expectedContent) !== 0
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      actualContent = fs.readFileSync(tmpFile.name);
+    }
+
+    assert.strictEqual(
+      actualContent.toString("hex"),
+      expectedContent.toString("hex"),
+      "連続保存後に全角チルダが波ダッシュに変換されなかった",
     );
   });
 });
