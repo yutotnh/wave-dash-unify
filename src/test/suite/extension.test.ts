@@ -35,6 +35,33 @@ suite("Extension Test Suite", () => {
    */
   test("Integration test", async () => {
     /**
+     * ファイルの内容が期待値になるまでポーリングで待つ
+     *
+     * 保存後の変換はデバウンスされて非同期に実行されるため、
+     * 保存直後にファイルを読んでも変換前の内容が返ることがある
+     *
+     * @param path 読み込むファイルのパス
+     * @param expected 期待するファイル内容
+     * @param timeoutMs 待機の上限時間(ms)
+     * @returns 最後に読み込んだファイル内容(タイムアウト時は期待値と異なる内容)
+     */
+    async function waitForFileContent(
+      path: string,
+      expected: Buffer,
+      timeoutMs: number,
+    ): Promise<Buffer> {
+      const deadline = Date.now() + timeoutMs;
+
+      let actual = fs.readFileSync(path);
+      while (Date.now() < deadline && Buffer.compare(actual, expected) !== 0) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        actual = fs.readFileSync(path);
+      }
+
+      return actual;
+    }
+
+    /**
      * VS Codeで実際にファイルを開いて保存する統合テスト
      *
      * @param enableConvert 拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値
@@ -82,7 +109,16 @@ suite("Extension Test Suite", () => {
       });
       await textEditor.document.save();
 
-      const actual = fs.readFileSync(tmpFile.name);
+      if (!enableConvert) {
+        // 変換が無効の場合は「変換されないこと」の確認なので、
+        // 変換が誤ってスケジュールされていれば実行されているはずの時間まで待つ
+        await new Promise((resolve) =>
+          setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+        );
+      }
+
+      // 保存後の変換はデバウンスされて非同期に実行されるため、結果が確定するまで待つ
+      const actual = await waitForFileContent(tmpFile.name, expect, 5000);
 
       assert.strictEqual(
         actual.toString("hex"),

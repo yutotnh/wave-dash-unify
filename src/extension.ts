@@ -15,10 +15,28 @@ const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
 // キーストロークのたびに全文スキャンが走らないように、この時間内の連続更新要求を1回にまとめる
 const STATUS_BAR_UPDATE_DEBOUNCE_MS = 200;
 
+// 保存後の変換を実行するまでのデバウンス時間(ms)
+// Ctrl+S長押しなどで保存イベントが連続する間はファイルを書き換えず、
+// 保存が落ち着いてから1回だけ変換する。保存の合間に拡張機能がファイルを
+// 書き換えると、VS Codeが記録しているファイル状態(etag)とディスクがズレて
+// 次の保存が「上書きに失敗しました」になるため(issue #13)
+export const SAVE_CONVERSION_DEBOUNCE_MS = 300;
+
 let statusBarItem: vscode.StatusBarItem;
 
 // デバウンス中のステータスバー更新タイマー
 let statusBarUpdateTimer: ReturnType<typeof setTimeout> | undefined;
+
+// 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)
+// timerがundefinedのものは「ドキュメントがdirtyだったため変換を先送りした」状態で、
+// 次の保存・クローズ・deactivateのいずれかのタイミングで変換される
+const pendingConversions = new Map<
+  string,
+  {
+    document: vscode.TextDocument;
+    timer: ReturnType<typeof setTimeout> | undefined;
+  }
+>();
 
 export function activate(context: vscode.ExtensionContext) {
   setupStatusBarItem();
@@ -46,8 +64,14 @@ export function activate(context: vscode.ExtensionContext) {
         },
       ),
       // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
+      // 保存イベントの連続発火中に書き換えると保存と競合するため、デバウンスして実行する
       vscode.workspace.onDidSaveTextDocument((document) => {
-        replaceSpecificCharacters(document);
+        scheduleSaveConversion(document);
+      }),
+      // 変換待ちのままドキュメントが閉じられた場合は、その場で変換する
+      // (閉じた後は保存と競合しないため、即座に実行して変換漏れを防ぐ)
+      vscode.workspace.onDidCloseTextDocument((document) => {
+        flushPendingConversion(document.uri.toString());
       }),
       // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
       vscode.window.onDidChangeActiveTextEditor(() => {
@@ -123,42 +147,172 @@ export function activate(context: vscode.ExtensionContext) {
  * | --------------------------- | ---------------------- |
  * | 全角チルダ (0x8F 0xA2 0xB7) | 波ダッシュ (0xA1 0xC1) |
  * | 全角NO     (0x8F 0xA2 0xF1) | 全角NO     (0xAD 0xE2) |
- * @param filePath 変換対象のファイルのパス
- * @returns 変換後の文字列
+ * @param document 変換対象のドキュメント
+ * @returns `true`: ファイルを書き換えた, `false`: 書き換え不要だった
  */
-export function replaceSpecificCharacters(document: vscode.TextDocument) {
+export function replaceSpecificCharacters(
+  document: vscode.TextDocument,
+): boolean {
   if (!isConvertEnabled()) {
-    return;
+    return false;
   }
 
   if (!isEUCJP(document)) {
-    return;
+    return false;
   }
 
   // 変換対象文字がドキュメントに1つもなければ、ディスクを読みに行く必要すらない
   // 保存直後のドキュメントテキストが保存内容の真実源であるため、これで安全に判定できる
   if (!containsConvertTargetCharacters(document.getText())) {
-    return;
+    return false;
   }
 
+  return convertSavedFile(document.fileName);
+}
+
+/**
+ * ディスク上のファイルを読み込み、変換対象のバイト列があれば書き換える
+ *
+ * ドキュメントのテキストを参照しないため、エディタ上の未保存の編集内容に
+ * かかわらず「最後に保存された内容」を基準に変換できる
+ *
+ * @param fileName 変換対象のファイルのパス
+ * @returns `true`: ファイルを書き換えた, `false`: 書き換え不要だった
+ */
+function convertSavedFile(fileName: string): boolean {
   // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
-  const content = fs.readFileSync(document.fileName);
+  const content = fs.readFileSync(fileName);
 
   const convertedString = replaceSpecificCharactersInBuffer(content);
 
-  // 既にファイルを保存しているため、変換後の文字列と変換前の文字列が同じなら何もしない
-  // これをしないと、Ctrl+Sを押しっぱなしにしたときに、上書きできなかったとエラーが出てくる
-  // TODO 全角チルダを波ダッシュに変換した際も前述のエラーを出さないようにしたい
-  // 変換対象がない場合は入力のBufferがそのまま返るため、比較せずに終了できる
+  // 変換対象がない場合は入力のBufferがそのまま返るため、参照比較だけで書き換え不要と判定できる
   if (
     convertedString === content ||
     Buffer.compare(convertedString, content) === 0
   ) {
+    return false;
+  }
+
+  fs.writeFileSync(fileName, convertedString, { flag: "w" });
+
+  return true;
+}
+
+/**
+ * 保存されたドキュメントの変換をデバウンス付きでスケジュールする
+ *
+ * Ctrl+S長押しなどで保存が連続する間はタイマーをリセットし続け、
+ * 保存が止まってからSAVE_CONVERSION_DEBOUNCE_MSが経過した時点で1回だけ変換する。
+ * これにより保存イベントの連続中はVS Code自身の書き込みしか発生せず、
+ * VS Codeが記録しているファイル状態(etag)とディスクがズレないため、
+ * 「上書きに失敗しました」(issue #13)が発生しない
+ *
+ * @param document 保存されたドキュメント
+ */
+function scheduleSaveConversion(document: vscode.TextDocument) {
+  // 実ファイル以外(untitledなど)は変換対象外
+  if (document.uri.scheme !== "file") {
     return;
   }
 
-  fs.writeFileSync(document.fileName, convertedString, { flag: "w" });
+  if (!isConvertEnabled() || !isEUCJP(document)) {
+    return;
+  }
+
+  const key = document.uri.toString();
+
+  const pending = pendingConversions.get(key);
+  if (pending?.timer !== undefined) {
+    clearTimeout(pending.timer);
+  }
+
+  const timer = setTimeout(() => {
+    runScheduledConversion(key, document);
+  }, SAVE_CONVERSION_DEBOUNCE_MS);
+
+  pendingConversions.set(key, { document, timer });
+}
+
+/**
+ * スケジュールされていた変換を実行する
+ *
+ * ドキュメントがdirty(未保存の編集がある)の場合は変換しない。
+ * ここでファイルを書き換えると、その後の保存が「上書きに失敗しました」になるため、
+ * 変換待ちのまま保留し、次の保存・クローズ・deactivateのタイミングに委ねる
+ *
+ * @param key pendingConversionsのキー(ドキュメントのURI文字列)
+ * @param document 変換対象のドキュメント
+ */
+function runScheduledConversion(key: string, document: vscode.TextDocument) {
+  if (!document.isClosed && document.isDirty) {
+    // 変換待ちの印だけを残して先送りする(timer: undefined)
+    pendingConversions.set(key, { document, timer: undefined });
+    return;
+  }
+
+  pendingConversions.delete(key);
+
+  const written = document.isClosed
+    ? convertSavedFile(document.fileName)
+    : replaceSpecificCharacters(document);
+
+  if (written && !document.isClosed) {
+    syncEditorWithConvertedFile(document);
+  }
+}
+
+/**
+ * 変換待ちのドキュメントがあれば、その場で変換する
+ *
+ * ドキュメントを閉じた時に呼ばれる。閉じた後は保存と競合しないため即座に実行する。
+ * エディタ上の編集が破棄されている可能性があるため、ドキュメントのテキストは参照せず
+ * ディスク上のファイルを直接変換する
+ *
+ * @param key pendingConversionsのキー(ドキュメントのURI文字列)
+ */
+function flushPendingConversion(key: string) {
+  const pending = pendingConversions.get(key);
+  if (!pending) {
+    return;
+  }
+
+  if (pending.timer !== undefined) {
+    clearTimeout(pending.timer);
+  }
+  pendingConversions.delete(key);
+
+  convertSavedFile(pending.document.fileName);
+}
+
+/**
+ * 変換後のファイル状態をエディタ(VS Code本体)に同期する
+ *
+ * 拡張機能によるファイル書き換えはVS Codeが記録しているファイル状態(etag)に
+ * 反映されないため、revertで再読込してetagを同期する。変換後のバイト列は
+ * デコードすると変換前と同一のテキストになるため、revertしてもエディタの内容・
+ * カーソル位置・undoスタックには影響しない(VS CodeのupdateModelは内容が
+ * 同一の場合何もしない)
+ *
+ * revertコマンドはアクティブエディタにしか作用しないため、対象ドキュメントが
+ * アクティブでない場合は何もしない(その場合はVS Codeのファイルウォッチャーに
+ * よる自動再読込に委ねる)
+ *
+ * @param document 変換したファイルのドキュメント
+ */
+async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
+  // dirtyなドキュメントをrevertすると編集内容が失われるため、
+  // アクティブエディタが対象ドキュメントかつdirtyでない場合のみ実行する
+  const activeDocument = vscode.window.activeTextEditor?.document;
+  if (activeDocument !== document || document.isDirty) {
+    return;
+  }
+
+  try {
+    await vscode.commands.executeCommand("workbench.action.files.revert");
+  } catch {
+    // revertに失敗しても、ファイルウォッチャーによる自動再読込で追従されるため無視する
+  }
 }
 
 /**
@@ -406,6 +560,16 @@ function cancelScheduledStatusBarUpdate() {
 
 export function deactivate() {
   cancelScheduledStatusBarUpdate();
+
+  // 変換待ちのファイルを残さないように、終了前にすべて変換する
+  for (const [key, pending] of pendingConversions) {
+    if (pending.timer !== undefined) {
+      clearTimeout(pending.timer);
+    }
+    pendingConversions.delete(key);
+
+    convertSavedFile(pending.document.fileName);
+  }
 
   if (statusBarItem) {
     statusBarItem.dispose();
