@@ -135,6 +135,12 @@ export function replaceSpecificCharacters(document: vscode.TextDocument) {
     return;
   }
 
+  // 変換対象文字がドキュメントに1つもなければ、ディスクを読みに行く必要すらない
+  // 保存直後のドキュメントテキストが保存内容の真実源であるため、これで安全に判定できる
+  if (!containsConvertTargetCharacters(document.getText())) {
+    return;
+  }
+
   // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
   const content = fs.readFileSync(document.fileName);
@@ -153,6 +159,34 @@ export function replaceSpecificCharacters(document: vscode.TextDocument) {
   }
 
   fs.writeFileSync(document.fileName, convertedString, { flag: "w" });
+}
+
+/**
+ * ドキュメントの文字列に変換対象文字(全角チルダ、全角NO)が含まれるかを判定する
+ *
+ * 設定で変換が無効化されている文字は判定対象に含めない
+ * (例: fullwidthTildeToWaveDashがfalseなら全角チルダの有無は見ない)
+ *
+ * @param text 判定対象の文字列(保存直後のドキュメント全文を想定)
+ * @returns `true`: 変換対象文字が1つ以上含まれる, `false`: 含まれない
+ */
+function containsConvertTargetCharacters(text: string): boolean {
+  const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+  const convertsFullwidthTilde = config.get(
+    "fullwidthTildeToWaveDash",
+  ) as boolean;
+  const convertsNumeroSign = config.get("numeroSignToNumeroSign") as boolean;
+
+  if (convertsFullwidthTilde && text.includes(FULLWIDTH_TILDE_CHAR)) {
+    return true;
+  }
+
+  if (convertsNumeroSign && text.includes(NUMERO_SIGN_CHAR)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
