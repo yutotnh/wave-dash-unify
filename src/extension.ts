@@ -68,8 +68,15 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidSaveTextDocument((document) => {
         scheduleSaveConversion(document);
       }),
-      // 変換待ちのままドキュメントが閉じられた場合は、その場で変換する
-      // (閉じた後は保存と競合しないため、即座に実行して変換漏れを防ぐ)
+      // タブが閉じられて、対象URIのタブが1つも無くなったドキュメントの
+      // 変換待ちをフラッシュする。タブの開閉に確実に追従するイベントのため、
+      // こちらを主な発火源とする(詳細はflushPendingConversionsWithoutOpenTabを参照)
+      vscode.window.tabGroups.onDidChangeTabs(() => {
+        flushPendingConversionsWithoutOpenTab();
+      }),
+      // 変換待ちのままドキュメントが破棄された場合は、その場で変換する
+      // (取りこぼしの保険。このイベントはタブを閉じた時に発火する保証が
+      // ないため、上記のtabGroups.onDidChangeTabsを主な発火源としている)
       vscode.workspace.onDidCloseTextDocument((document) => {
         flushPendingConversion(document.uri.toString());
       }),
@@ -263,11 +270,67 @@ function runScheduledConversion(key: string, document: vscode.TextDocument) {
 }
 
 /**
+ * pendingConversionsのうち、対応するタブが1つも開かれていないものをその場で変換する
+ *
+ * onDidCloseTextDocumentは「ドキュメントが破棄された時」に発火するイベントであり、
+ * VS CodeのAPIドキュメントにも「タブを閉じた時に発火する保証はない」と明記されている。
+ * 実際、このイベントに変換のフラッシュを紐付けていた実装では、タブを閉じても
+ * ドキュメントが破棄されるまで(VS Codeを終了するまで)変換待ちのまま残ることがあった。
+ *
+ * tabGroups.onDidChangeTabsはタブの開閉に確実に追従するため、こちらを主な
+ * 発火源とする。ただし、まだ他のタブで開かれているドキュメントをここでフラッシュ
+ * すると、dirtyな状態のままファイルを直接書き換えてしまいissue #13が再発するため、
+ * 対象URIのタブが1つも無い場合に限ってフラッシュする
+ */
+function flushPendingConversionsWithoutOpenTab() {
+  const openUris = new Set(
+    vscode.window.tabGroups.all
+      .flatMap((group) => group.tabs)
+      .map((tab) => getTabUri(tab.input))
+      .filter((uri): uri is vscode.Uri => uri !== undefined)
+      .map((uri) => uri.toString()),
+  );
+
+  // flushPendingConversionが走査中にpendingConversionsをdeleteするため、
+  // キーのスナップショットを取ってから回す
+  for (const key of [...pendingConversions.keys()]) {
+    if (!openUris.has(key)) {
+      flushPendingConversion(key);
+    }
+  }
+}
+
+/**
+ * タブの入力(Tab.input)が持つURIを取り出す
+ *
+ * Tab.inputの型はTabInputText | TabInputTextDiff | ... | unknownと非常に広いため、
+ * 個々の型に対してinstanceof判定をするのではなく、uriプロパティを持つかどうかで
+ * 安全に絞り込む(TabInputText, TabInputCustom, TabInputNotebookなどが対象になる)
+ *
+ * @param input タブの入力(Tab.input)
+ * @returns URI。uriプロパティを持たない入力の場合はundefined
+ */
+function getTabUri(input: unknown): vscode.Uri | undefined {
+  if (
+    typeof input === "object" &&
+    input !== null &&
+    "uri" in input &&
+    input.uri instanceof vscode.Uri
+  ) {
+    return input.uri;
+  }
+
+  return undefined;
+}
+
+/**
  * 変換待ちのドキュメントがあれば、その場で変換する
  *
- * ドキュメントを閉じた時に呼ばれる。閉じた後は保存と競合しないため即座に実行する。
- * エディタ上の編集が破棄されている可能性があるため、ドキュメントのテキストは参照せず
- * ディスク上のファイルを直接変換する
+ * flushPendingConversionsWithoutOpenTab、およびonDidCloseTextDocument
+ * (取りこぼしの保険。詳細はactivate内のコメントを参照)から呼ばれる。
+ * ここで変換する時点でドキュメントは既にタブから閉じられている(または破棄されている)ため、
+ * 保存とは競合しない。エディタ上の編集が破棄されている可能性があるため、
+ * ドキュメントのテキストは参照せずディスク上のファイルを直接変換する
  *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
  */
