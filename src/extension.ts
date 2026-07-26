@@ -397,26 +397,26 @@ function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
 async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
   // dirtyなドキュメントをrevertすると編集内容が失われるため、
   // アクティブエディタが対象ドキュメントかつdirtyでない場合のみ実行する
-  // (呼び出し元で既に確認済みだが、防御的に再確認する)
+  // (呼び出し元で既に確認済みだが、防御的に再確認する)。
+  //
+  // 既知の残余リスク(解消できていない): workbench.action.files.revertの
+  // コマンドハンドラの実装(VS Code 1.130.0のバンドルされたソースで確認)は
+  // ServicesAccessorのみを引数に取る関数であり、executeCommandの第2引数
+  // 以降は一切参照されない。対象はハンドラ実行時点の「アクティブなエディタ
+  // グループのアクティブエディタ」から解決される(エクスプローラの選択状態が
+  // 無い限り)。つまりdocument.uriのような引数を渡しても対象を固定する効果は
+  // 無く、このチェックからexecuteCommandがレンダラー側で実際に処理される
+  // までの間にユーザーがタブを切り替えた場合、無関係な別のドキュメントが
+  // revertされる(その未保存編集がforce:trueにより確認なしに失われる)余地が
+  // 理論上残っている。この窓を拡張機能のコードから閉じる手段はVS Codeの
+  // 公開APIには無い(ドキュメントを指定してrevertするAPIが存在しないため)
   const activeDocument = vscode.window.activeTextEditor?.document;
   if (activeDocument !== document || document.isDirty) {
     return;
   }
 
   try {
-    // revertにはdocument.uriを渡し、対象をこの時点(拡張ホスト側)で確定させる。
-    // 引数無しで呼ぶと、拡張ホストがexecuteCommandを発行してからレンダラー側で
-    // 実際に処理されるまでの間にユーザーがタブを切り替えた場合、無関係な別の
-    // ドキュメントがrevertされ、その未保存の編集が失われるおそれがある
-    // (この関数の呼び出しはawaitされていないfire-and-forgetのため、この
-    // 窓が理論上開いていた)。document.uriを渡して呼び出した状態で、対象を
-    // アクティブなままrevert呼び出し直後から高速にタブ切り替えを繰り返す
-    // ストレステストを行い、常に指定したURIのみがrevertされ、切り替え先の
-    // ドキュメントの未保存編集は一度も失われないことを確認した(10/10)
-    await vscode.commands.executeCommand(
-      "workbench.action.files.revert",
-      document.uri,
-    );
+    await vscode.commands.executeCommand("workbench.action.files.revert");
   } catch {
     // revertに失敗した場合の追加リカバリ手段は無いため、ここでは無視する
   }
