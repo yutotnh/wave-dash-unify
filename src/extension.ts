@@ -135,6 +135,17 @@ export function replaceSpecificCharacters(document: vscode.TextDocument) {
     return;
   }
 
+  // 変換対象文字がドキュメントに1つもなければ、ディスクを読みに行く必要すらない。
+  // これが安全なのは「保存直後のテキストが真実源だから」ではなく、EUC-JPで
+  // 0x8F 0xA2 0xB7(全角チルダ)を生成できる文字がU+FF5E以外に無く、
+  // 0x8F 0xA2 0xF1(全角NO)を生成できる文字もU+2116以外に無いため。
+  // つまりテキスト上の判定は「変換対象バイト列の有無」の安全側の過剰近似になる
+  // (変換後のバイト列0xA1 0xC1 / 0xAD 0xE2はデコードするとそれぞれU+FF5E /
+  // U+2116に戻るため、既に変換済みのファイルも取りこぼされない)
+  if (!containsConvertTargetCharacters(document)) {
+    return;
+  }
+
   // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
   const content = fs.readFileSync(document.fileName);
@@ -153,6 +164,44 @@ export function replaceSpecificCharacters(document: vscode.TextDocument) {
   }
 
   fs.writeFileSync(document.fileName, convertedString, { flag: "w" });
+}
+
+/**
+ * ドキュメントに変換対象文字(全角チルダ、全角NO)が含まれるかを判定する
+ *
+ * 設定で変換が無効化されている文字は判定対象に含めない
+ * (例: fullwidthTildeToWaveDashがfalseなら全角チルダの有無は見ない)。
+ * 両方の設定がfalseの場合は変換が絶対に起きないため、document.getText()
+ * (全文のUTF-16コピーを作る)を呼ばずに終了する
+ *
+ * @param document 判定対象のドキュメント(保存直後のものを想定)
+ * @returns `true`: 変換対象文字が1つ以上含まれる, `false`: 含まれない
+ */
+export function containsConvertTargetCharacters(
+  document: vscode.TextDocument,
+): boolean {
+  const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+  const convertsFullwidthTilde = config.get(
+    "fullwidthTildeToWaveDash",
+  ) as boolean;
+  const convertsNumeroSign = config.get("numeroSignToNumeroSign") as boolean;
+
+  if (!convertsFullwidthTilde && !convertsNumeroSign) {
+    return false;
+  }
+
+  const text = document.getText();
+
+  if (convertsFullwidthTilde && text.includes(FULLWIDTH_TILDE_CHAR)) {
+    return true;
+  }
+
+  if (convertsNumeroSign && text.includes(NUMERO_SIGN_CHAR)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
