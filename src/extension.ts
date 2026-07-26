@@ -195,6 +195,14 @@ export function replaceSpecificCharacters(
  * @returns `true`: ファイルを書き換えた, `false`: 書き換え不要だった
  */
 function convertSavedFile(fileName: string): boolean {
+  // 変換をスケジュールした後に設定で無効化された場合は何もしない。
+  // スケジュール時点(scheduleSaveConversion)でしか確認しないと、
+  // 無効化した後にクローズやdeactivateが起きた時点で、無効化を無視して
+  // ディスクを書き換えてしまう
+  if (!isConvertEnabled()) {
+    return false;
+  }
+
   // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
   const content = fs.readFileSync(fileName);
@@ -291,7 +299,9 @@ function runScheduledConversion(key: string, document: vscode.TextDocument) {
   const written = replaceSpecificCharacters(document);
 
   if (written) {
-    syncEditorWithConvertedFile(document);
+    // awaitできない(呼び出し元がsetTimeoutのコールバック)ため、
+    // 内部でエラーを処理させる。revertが失敗しても追加のリカバリ手段は無い
+    void syncEditorWithConvertedFile(document);
   }
 }
 
