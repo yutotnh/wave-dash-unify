@@ -68,23 +68,20 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidSaveTextDocument((document) => {
         scheduleSaveConversion(document);
       }),
-      // タブが閉じられて、対象URIのタブが1つも無くなったドキュメントの
-      // 変換待ちをフラッシュする。タブの開閉に確実に追従するイベントのため、
-      // こちらを主な発火源とする(詳細はflushPendingConversionsWithoutOpenTabを参照)
-      vscode.window.tabGroups.onDidChangeTabs(() => {
-        flushPendingConversionsWithoutOpenTab();
-      }),
       // 変換待ちのままドキュメントが破棄された場合は、その場で変換する
-      // (取りこぼしの保険。このイベントはタブを閉じた時に発火する保証が
-      // ないため、上記のtabGroups.onDidChangeTabsを主な発火源としている)
+      // (モデルが存在しなくなるためetagの不整合が起きない)
       vscode.workspace.onDidCloseTextDocument((document) => {
         flushPendingConversion(document.uri.toString());
       }),
       // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
-      vscode.window.onDidChangeActiveTextEditor(() => {
+      vscode.window.onDidChangeActiveTextEditor((editor) => {
         // エディタが切り替わったので、直前のエディタ向けにスケジュールされていた更新は不要
         cancelScheduledStatusBarUpdate();
         updateStatusBarItem(statusBarItem);
+
+        // 非アクティブだったために先送りされていた変換があれば、
+        // アクティブになったこのタイミングで再開する(runScheduledConversionの3を参照)
+        resumePendingConversionIfActive(editor?.document);
       }),
       vscode.workspace.onDidChangeTextDocument((e) => {
         // アクティブエディタ以外のドキュメント変更(出力チャンネルなど)では
@@ -244,15 +241,35 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
 /**
  * スケジュールされていた変換を実行する
  *
- * ドキュメントがdirty(未保存の編集がある)の場合は変換しない。
- * ここでファイルを書き換えると、その後の保存が「上書きに失敗しました」になるため、
- * 変換待ちのまま保留し、次の保存・クローズ・deactivateのタイミングに委ねる
+ * 実行してよいかどうかを次の4分類で判定する:
+ *
+ * 1. ドキュメントが破棄済み(isClosed)      -> そのまま変換する
+ *    (モデルが存在しないのでetagの不整合が起きない)
+ * 2. dirty(未保存の編集がある)             -> 先送り
+ *    ここでファイルを書き換えると、その後の保存が「上書きに失敗しました」になる
+ * 3. アクティブエディタではない             -> 先送り
+ *    etagの同期手段であるrevertはアクティブエディタにしか作用しないため、
+ *    非アクティブなまま変換するとetagが同期されずissue #13が再発する
+ *    (実測で確認済み。VS Codeのファイルウォッチャーによる自動再読込にも委ねられない)
+ * 4. アクティブかつ非dirty                 -> 変換 + revertでetagを同期する
+ *
+ * 2, 3で先送りしたものは、次の保存(再スケジュール)・onDidChangeActiveTextEditorでの
+ * 再開(resumePendingConversionIfActive)・クローズ・deactivateのいずれかで実行される
  *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
  * @param document 変換対象のドキュメント
  */
 function runScheduledConversion(key: string, document: vscode.TextDocument) {
-  if (!document.isClosed && document.isDirty) {
+  if (document.isClosed) {
+    pendingConversions.delete(key);
+    convertSavedFile(document.fileName);
+    return;
+  }
+
+  if (
+    document.isDirty ||
+    vscode.window.activeTextEditor?.document !== document
+  ) {
     // 変換待ちの印だけを残して先送りする(timer: undefined)
     pendingConversions.set(key, { document, timer: undefined });
     return;
@@ -260,77 +277,55 @@ function runScheduledConversion(key: string, document: vscode.TextDocument) {
 
   pendingConversions.delete(key);
 
-  const written = document.isClosed
-    ? convertSavedFile(document.fileName)
-    : replaceSpecificCharacters(document);
+  const written = replaceSpecificCharacters(document);
 
-  if (written && !document.isClosed) {
+  if (written) {
     syncEditorWithConvertedFile(document);
   }
 }
 
 /**
- * pendingConversionsのうち、対応するタブが1つも開かれていないものをその場で変換する
+ * 先送りされていた変換を、ドキュメントがアクティブになったタイミングで再開する
  *
- * onDidCloseTextDocumentは「ドキュメントが破棄された時」に発火するイベントであり、
- * VS CodeのAPIドキュメントにも「タブを閉じた時に発火する保証はない」と明記されている。
- * 実際、このイベントに変換のフラッシュを紐付けていた実装では、タブを閉じても
- * ドキュメントが破棄されるまで(VS Codeを終了するまで)変換待ちのまま残ることがあった。
+ * runScheduledConversionの3(アクティブエディタでなければ先送り)の受け皿。
+ * 先送り中(timer: undefined)のドキュメントが再びアクティブになった時だけ
+ * runScheduledConversionを呼び直し、変換してよいかを再判定させる
+ * (dirtyであれば引き続き先送りされる)
  *
- * tabGroups.onDidChangeTabsはタブの開閉に確実に追従するため、こちらを主な
- * 発火源とする。ただし、まだ他のタブで開かれているドキュメントをここでフラッシュ
- * すると、dirtyな状態のままファイルを直接書き換えてしまいissue #13が再発するため、
- * 対象URIのタブが1つも無い場合に限ってフラッシュする
+ * 保存直後のデバウンス待ち(timer !== undefined)はここでは触らない。
+ * デバウンスタイマー満了時にrunScheduledConversion自身が同じ判定を行う
+ *
+ * @param document アクティブになったエディタのドキュメント。エディタが無い場合はundefined
  */
-function flushPendingConversionsWithoutOpenTab() {
-  const openUris = new Set(
-    vscode.window.tabGroups.all
-      .flatMap((group) => group.tabs)
-      .map((tab) => getTabUri(tab.input))
-      .filter((uri): uri is vscode.Uri => uri !== undefined)
-      .map((uri) => uri.toString()),
-  );
-
-  // flushPendingConversionが走査中にpendingConversionsをdeleteするため、
-  // キーのスナップショットを取ってから回す
-  for (const key of [...pendingConversions.keys()]) {
-    if (!openUris.has(key)) {
-      flushPendingConversion(key);
-    }
-  }
-}
-
-/**
- * タブの入力(Tab.input)が持つURIを取り出す
- *
- * Tab.inputの型はTabInputText | TabInputTextDiff | ... | unknownと非常に広いため、
- * 個々の型に対してinstanceof判定をするのではなく、uriプロパティを持つかどうかで
- * 安全に絞り込む(TabInputText, TabInputCustom, TabInputNotebookなどが対象になる)
- *
- * @param input タブの入力(Tab.input)
- * @returns URI。uriプロパティを持たない入力の場合はundefined
- */
-function getTabUri(input: unknown): vscode.Uri | undefined {
-  if (
-    typeof input === "object" &&
-    input !== null &&
-    "uri" in input &&
-    input.uri instanceof vscode.Uri
-  ) {
-    return input.uri;
+function resumePendingConversionIfActive(
+  document: vscode.TextDocument | undefined,
+) {
+  if (!document) {
+    return;
   }
 
-  return undefined;
+  const key = document.uri.toString();
+  const pending = pendingConversions.get(key);
+  if (!pending || pending.timer !== undefined) {
+    return;
+  }
+
+  runScheduledConversion(key, document);
 }
 
 /**
  * 変換待ちのドキュメントがあれば、その場で変換する
  *
- * flushPendingConversionsWithoutOpenTab、およびonDidCloseTextDocument
- * (取りこぼしの保険。詳細はactivate内のコメントを参照)から呼ばれる。
- * ここで変換する時点でドキュメントは既にタブから閉じられている(または破棄されている)ため、
- * 保存とは競合しない。エディタ上の編集が破棄されている可能性があるため、
+ * onDidCloseTextDocumentとdeactivateから呼ばれる。いずれもドキュメントが
+ * 破棄される(またはこれ以上保存が起きない)場面のため、ディスクを書き換えても
+ * 以降の保存と競合しない。エディタ上の編集が破棄されている可能性があるため、
  * ドキュメントのテキストは参照せずディスク上のファイルを直接変換する
+ *
+ * onDidCloseTextDocumentは「ドキュメントが破棄された時」に発火するイベントであり、
+ * VS CodeのAPIドキュメントにも「タブを閉じた時に発火する保証はない」と明記されている
+ * (実測でも、タブを閉じただけでは発火しないことを確認した)。そのため「タブを閉じたら
+ * 即座に変換される」ことは保証しない。破棄される(または拡張機能がdeactivateする)まで
+ * 変換待ちのまま残ることを許容する
  *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
  */
@@ -345,7 +340,15 @@ function flushPendingConversion(key: string) {
   }
   pendingConversions.delete(key);
 
-  convertSavedFile(pending.document.fileName);
+  const document = pending.document;
+
+  // onDidCloseTextDocument発火時点でdirtyになっていることは通常ないが、
+  // dirtyなまま書き換えるとissue #13が再発するため防御的にガードする
+  if (!document.isClosed && document.isDirty) {
+    return;
+  }
+
+  convertSavedFile(document.fileName);
 }
 
 /**
@@ -357,15 +360,20 @@ function flushPendingConversion(key: string) {
  * カーソル位置・undoスタックには影響しない(VS CodeのupdateModelは内容が
  * 同一の場合何もしない)
  *
- * revertコマンドはアクティブエディタにしか作用しないため、対象ドキュメントが
- * アクティブでない場合は何もしない(その場合はVS Codeのファイルウォッチャーに
- * よる自動再読込に委ねる)
+ * revertコマンドはアクティブエディタにしか作用しない。かつ、非アクティブな
+ * 背景タブの非dirtyドキュメントはディスクを書き換えてもVS Codeのファイル
+ * ウォッチャーによる自動再読込が働かない(実測で確認済み。15秒待っても
+ * リロードされない)。そのためこの関数は「対象ドキュメントがアクティブかつ
+ * 非dirty」の場合にのみ呼び出す前提としている(呼び出し元のrunScheduledConversion
+ * を参照)。非アクティブな場合にetagを同期する手段は無いため、変換自体を
+ * runScheduledConversionの時点で先送りする方針にしている
  *
  * @param document 変換したファイルのドキュメント
  */
 async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
   // dirtyなドキュメントをrevertすると編集内容が失われるため、
   // アクティブエディタが対象ドキュメントかつdirtyでない場合のみ実行する
+  // (呼び出し元で既に確認済みだが、防御的に再確認する)
   const activeDocument = vscode.window.activeTextEditor?.document;
   if (activeDocument !== document || document.isDirty) {
     return;
@@ -374,7 +382,7 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
   try {
     await vscode.commands.executeCommand("workbench.action.files.revert");
   } catch {
-    // revertに失敗しても、ファイルウォッチャーによる自動再読込で追従されるため無視する
+    // revertに失敗した場合の追加リカバリ手段は無いため、ここでは無視する
   }
 }
 
@@ -624,14 +632,10 @@ function cancelScheduledStatusBarUpdate() {
 export function deactivate() {
   cancelScheduledStatusBarUpdate();
 
-  // 変換待ちのファイルを残さないように、終了前にすべて変換する
-  for (const [key, pending] of pendingConversions) {
-    if (pending.timer !== undefined) {
-      clearTimeout(pending.timer);
-    }
-    pendingConversions.delete(key);
-
-    convertSavedFile(pending.document.fileName);
+  // 変換待ちのファイルを残さないように、終了前にすべてflushPendingConversionで変換する
+  // (これ以降保存が起きないため、dirtyガードに引っかかることはない想定)
+  for (const key of [...pendingConversions.keys()]) {
+    flushPendingConversion(key);
   }
 
   if (statusBarItem) {
