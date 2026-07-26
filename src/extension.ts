@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
+import { createDebouncer } from "./debounce";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
@@ -17,8 +18,12 @@ const STATUS_BAR_UPDATE_DEBOUNCE_MS = 200;
 
 let statusBarItem: vscode.StatusBarItem;
 
-// デバウンス中のステータスバー更新タイマー
-let statusBarUpdateTimer: ReturnType<typeof setTimeout> | undefined;
+// ステータスバー更新のデバウンサ。setupStatusBarItemによる再代入後も
+// 正しいstatusBarItemを使うように、値ではなく変数を捕捉するクロージャにする
+const statusBarUpdateDebouncer = createDebouncer(
+  () => updateStatusBarItem(statusBarItem),
+  STATUS_BAR_UPDATE_DEBOUNCE_MS,
+);
 
 export function activate(context: vscode.ExtensionContext) {
   setupStatusBarItem();
@@ -52,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
       // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
       vscode.window.onDidChangeActiveTextEditor(() => {
         // エディタが切り替わったので、直前のエディタ向けにスケジュールされていた更新は不要
-        cancelScheduledStatusBarUpdate();
+        statusBarUpdateDebouncer.cancel();
         updateStatusBarItem(statusBarItem);
       }),
       vscode.workspace.onDidChangeTextDocument((e) => {
@@ -63,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // 連続するキーストロークのたびに全文スキャンが走らないように、更新をデバウンスする
-        scheduleStatusBarUpdate(statusBarItem);
+        statusBarUpdateDebouncer.schedule();
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         // この拡張機能に関係ない設定変更では更新不要
@@ -391,36 +396,8 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
     .replace("${numeroSignCount}", count.numeroSign.toString());
 }
 
-/**
- * ステータスバーの更新をデバウンスする
- *
- * 短時間に連続して呼び出された場合、直近の呼び出しからSTATUS_BAR_UPDATE_DEBOUNCE_MSだけ
- * 経過した時点で1回だけupdateStatusBarItemを実行する(trailing edge)
- * 大きなファイルを編集中に1キーストロークごとの全文スキャンが走るのを防ぐ
- *
- * @param statusBarItem ステータスバーに表示する項目
- */
-function scheduleStatusBarUpdate(statusBarItem: vscode.StatusBarItem) {
-  cancelScheduledStatusBarUpdate();
-
-  statusBarUpdateTimer = setTimeout(() => {
-    statusBarUpdateTimer = undefined;
-    updateStatusBarItem(statusBarItem);
-  }, STATUS_BAR_UPDATE_DEBOUNCE_MS);
-}
-
-/**
- * scheduleStatusBarUpdateでスケジュールされた、未実行のステータスバー更新をキャンセルする
- */
-function cancelScheduledStatusBarUpdate() {
-  if (statusBarUpdateTimer !== undefined) {
-    clearTimeout(statusBarUpdateTimer);
-    statusBarUpdateTimer = undefined;
-  }
-}
-
 export function deactivate() {
-  cancelScheduledStatusBarUpdate();
+  statusBarUpdateDebouncer.cancel();
 
   if (statusBarItem) {
     statusBarItem.dispose();
