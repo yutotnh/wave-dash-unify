@@ -13,10 +13,14 @@ export const NUMERO_SIGN_CODE_POINT = 0x2116;
 // VS CodeのEUC-JPコーデックは 0xA1 0xC1(波ダッシュのバイト列)も
 // 0x8F 0xA2 0xB7(全角チルダのバイト列)も等しくU+FF5Eにデコードし、
 // 逆にU+301Cをエンコードすると表現できず'?'(0x3F)になる。
-// そのためWAVE_DASH_CHARを使ったカウントは実質デッドコードだが、
-// 将来UTF-8など他のエンコーディングを扱うようになればU+301Cが実際に
-// 現れうるため、意図的に残している(issue #635)。
-// この前提はsrc/test/suite/eucjp-encoding-invariants.test.tsで固定してある
+// そのため変換対象であるEUC-JPのファイルに限れば、WAVE_DASH_CHARを使った
+// カウントは常に0件になる(issue #635)。
+// ただしステータスバーのカウント(updateStatusBarItem)はドキュメントの
+// エンコーディングを問わず動くため、UTF-8のファイルを開いている場合は
+// U+301Cが現時点で実際にカウントされる。この項を削除するとその表示が
+// 変わってしまうため残している。
+// EUC-JP側の前提はsrc/test/suite/eucjp-encoding-invariants.test.tsで
+// 固定してある
 const WAVE_DASH_CHAR = String.fromCodePoint(WAVEDASH_CODE_POINT);
 const FULLWIDTH_TILDE_CHAR = String.fromCodePoint(FULLWIDTH_TILDE_CODE_POINT);
 const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
