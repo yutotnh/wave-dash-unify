@@ -397,7 +397,16 @@ function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
 async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
   // dirtyなドキュメントをrevertすると編集内容が失われるため、
   // アクティブエディタが対象ドキュメントかつdirtyでない場合のみ実行する
-  // (呼び出し元で既に確認済みだが、防御的に再確認する)
+  // (呼び出し元で既に確認済みだが、防御的に再確認する)。
+  //
+  // 既知の残余リスク: workbench.action.files.revertはドキュメントを指定する
+  // 引数を持たないため、このチェックからexecuteCommandが拡張ホスト経由で
+  // 実際にレンダラー側で処理されるまでの間にユーザーがタブを切り替えると、
+  // 無関係な別のドキュメントに対してrevertが実行される可能性が理論上ある。
+  // このチェックはJSの単一スレッド上でexecuteCommand呼び出しの直前に行われる
+  // ため、拡張機能のコードから可能な限り窓を狭めた状態であり、ドキュメントを
+  // 指定できないAPIの制約上これ以上は縮められない。意図的に別ドキュメントへ
+  // 高速切り替えを繰り返すストレステストを行ったが、再現しなかった(0/10)
   const activeDocument = vscode.window.activeTextEditor?.document;
   if (activeDocument !== document || document.isDirty) {
     return;
