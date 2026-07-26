@@ -340,7 +340,7 @@ function resumePendingConversionIfActive(
  *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
  */
-function flushPendingConversion(key: string) {
+function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
   const pending = pendingConversions.get(key);
   if (!pending) {
     return;
@@ -353,9 +353,12 @@ function flushPendingConversion(key: string) {
 
   const document = pending.document;
 
-  // onDidCloseTextDocument発火時点でdirtyになっていることは通常ないが、
-  // dirtyなまま書き換えるとissue #13が再発するため防御的にガードする
-  if (!document.isClosed && document.isDirty) {
+  // dirtyなまま書き換えると、その後の保存が「上書きに失敗しました」になる(issue #13)。
+  // onDidCloseTextDocument発火時点でdirtyになっていることは通常ないが、防御的にガードする。
+  // ただしdeactivate時はこれ以降の保存が起きないため、dirtyでも変換する
+  // (ここでスキップすると変換されないまま終了してしまう。hot exitが有効な場合、
+  //  dirtyなドキュメントは確認ダイアログなしで保持されるため、この状態は実際に起こり得る)
+  if (!convertsEvenIfDirty && !document.isClosed && document.isDirty) {
     return;
   }
 
@@ -625,9 +628,10 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 export function deactivate() {
   statusBarUpdateDebouncer.cancel();
 
-  // 変換待ちのファイルを残さないように、終了前にすべて変換する
+  // 変換待ちのファイルを残さないように、終了前にすべて変換する。
+  // これ以降の保存は起きないため、dirtyなものも変換する(第2引数)
   for (const key of [...pendingConversions.keys()]) {
-    flushPendingConversion(key);
+    flushPendingConversion(key, true);
   }
 
   if (statusBarItem) {
