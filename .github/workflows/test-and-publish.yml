@@ -19,6 +19,10 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # OVSX_PAT が未設定でも Open VSX への公開ステップをスキップするだけで済むよう、
+      # step の if で参照できる env 経由で渡す (secrets は if で参照できない)
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -36,6 +40,9 @@ jobs:
         run: npm run vscode:publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Publish to Open VSX
+        if: success() && startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest' && env.OVSX_PAT != ''
+        run: npm run vscode:publish-ovsx
       - name: Create package
         run: npm run vscode:package
       - name: Release
