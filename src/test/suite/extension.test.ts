@@ -562,6 +562,250 @@ suite("Extension Test Suite", () => {
   });
 
   /**
+   * containsConvertTargetCharactersによる早期returnがEUC-JPファイルを保存しても
+   * 内容を変えないことを検証するための共通ヘルパー
+   *
+   * ファイルを開いた直後はdirtyでないため、TextDocument.save()を呼んでも
+   * 何も起きず(実際の保存もonDidSaveTextDocumentの発火もされない)、保存経路を
+   * 検証したことにならない。末尾に1文字挿入してすぐ削除することで、内容は
+   * 変えずにdirty→cleanの実際の保存を発生させてからファイルの内容を比較する
+   *
+   * ファイルの内容比較(保存経路)に加えて、containsConvertTargetCharacters自体の
+   * 戻り値もfalseであることを直接確認する。replaceSpecificCharactersInBufferは
+   * 変換対象の文字ごとに設定を再確認する独立したガードを持つため、
+   * containsConvertTargetCharacters側の設定判定だけが壊れても保存結果の比較だけでは
+   * 検出できない場合がある(実際に確認済み)。戻り値を直接見ることでその抜け穴を塞ぐ
+   *
+   * @param contents 保存対象のファイルの内容(変換が起きないことを期待する内容)
+   * @param fullwidthTildeToWaveDash waveDashUnify.fullwidthTildeToWaveDashの設定値
+   * @param numeroSignToNumeroSign waveDashUnify.numeroSignToNumeroSignの設定値
+   * @param message アサーション失敗時のメッセージ
+   */
+  async function assertSaveLeavesFileUnchanged(
+    contents: Buffer,
+    fullwidthTildeToWaveDash: boolean,
+    numeroSignToNumeroSign: boolean,
+    message: string,
+  ) {
+    const waveDashUnifyConfig =
+      vscode.workspace.getConfiguration("waveDashUnify");
+    await waveDashUnifyConfig.update(
+      "enableConvert",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+    await waveDashUnifyConfig.update(
+      "fullwidthTildeToWaveDash",
+      fullwidthTildeToWaveDash,
+      vscode.ConfigurationTarget.Global,
+    );
+    await waveDashUnifyConfig.update(
+      "numeroSignToNumeroSign",
+      numeroSignToNumeroSign,
+      vscode.ConfigurationTarget.Global,
+    );
+
+    // 自動判定でEUC-JPと判定されるようにする
+    const fileConfig = vscode.workspace.getConfiguration("files");
+    await fileConfig.update(
+      "autoGuessEncoding",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+
+    const tmpFile = tmp.fileSync();
+    fs.writeFileSync(tmpFile.name, contents);
+
+    const document = await vscode.workspace.openTextDocument(tmpFile.name);
+    const textEditor = await vscode.window.showTextDocument(document);
+    assert.strictEqual(
+      document.encoding,
+      "eucjp",
+      "前提条件エラー: ファイルがEUC-JPと判定されなかった",
+    );
+
+    assert.strictEqual(
+      extension.containsConvertTargetCharacters(document),
+      false,
+      `containsConvertTargetCharactersがtrueを返した: ${message}`,
+    );
+
+    // dirty→cleanの実際の保存を発生させるため、末尾に1文字挿入してすぐ削除する
+    // (内容自体は変えない)
+    await textEditor.edit((editBuilder) => {
+      const lastLine = document.lineCount - 1;
+      const lastLineLength = document.lineAt(lastLine).text.length;
+      editBuilder.insert(new vscode.Position(lastLine, lastLineLength), "x");
+    });
+    await textEditor.edit((editBuilder) => {
+      const lastLine = document.lineCount - 1;
+      const lastLineLength = document.lineAt(lastLine).text.length;
+      editBuilder.delete(
+        new vscode.Range(
+          new vscode.Position(lastLine, lastLineLength - 1),
+          new vscode.Position(lastLine, lastLineLength),
+        ),
+      );
+    });
+    await document.save();
+
+    const actual = fs.readFileSync(tmpFile.name);
+    assert.strictEqual(
+      actual.toString("hex"),
+      contents.toString("hex"),
+      message,
+    );
+  }
+
+  /**
+   * 変換対象文字がドキュメントに1つも無い場合、containsConvertTargetCharactersの
+   * 早期returnによって保存経路がファイルの内容を一切変えないことを確認する
+   */
+  test("save EUC-JP file without target characters leaves it unchanged", async () => {
+    // 変換対象文字を含まないEUC-JPの文字列
+    // 文字列: "ああああ"
+    const contents = Buffer.from([
+      0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2,
+    ]);
+
+    await assertSaveLeavesFileUnchanged(
+      contents,
+      true,
+      true,
+      "変換対象文字を含まないファイルが保存によって変化した",
+    );
+  });
+
+  /**
+   * fullwidthTildeToWaveDashとnumeroSignToNumeroSignの組み合わせによる
+   * 早期returnの境界を確認する
+   *
+   * - fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true の状態で
+   *   全角チルダのみを含むファイルを保存 → 変換されない
+   * - fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false の状態で
+   *   全角NOのみを含むファイルを保存 → 変換されない
+   */
+  test("early return respects each setting independently", async () => {
+    // 全角チルダのみ(全角NOは含まない)
+    // 文字列: "ああああ～"
+    const fullwidthTildeOnly = Buffer.from([
+      0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0x8f, 0xa2, 0xb7,
+    ]);
+    await assertSaveLeavesFileUnchanged(
+      fullwidthTildeOnly,
+      false,
+      true,
+      "fullwidthTildeToWaveDash: falseなのに、全角チルダのみのファイルが保存によって変化した",
+    );
+
+    // 全角NOのみ(全角チルダは含まない)
+    // 文字列: "ああああ№"
+    const numeroSignOnly = Buffer.from([
+      0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0x8f, 0xa2, 0xf1,
+    ]);
+    await assertSaveLeavesFileUnchanged(
+      numeroSignOnly,
+      true,
+      false,
+      "numeroSignToNumeroSign: falseなのに、全角NOのみのファイルが保存によって変化した",
+    );
+  });
+
+  /**
+   * containsConvertTargetCharactersの早期returnが安全な理由を固定するテスト
+   *
+   * この判定はdocument.getText()に全角チルダ(U+FF5E)・全角NO(U+2116)が含まれるかで
+   * 行うが、これは「保存直後のテキストが真実源だから」ではなく、EUC-JPで
+   * 0x8F 0xA2 0xB7(全角チルダ)を生成できる文字がU+FF5E以外に無く、
+   * 0x8F 0xA2 0xF1(全角NO)を生成できる文字もU+2116以外に無いためである。
+   * つまりテキスト上の判定は「変換対象バイト列の有無」の安全側の過剰近似になる。
+   *
+   * この前提はVS Code自身のEUC-JPデコーダの実装に依存しており、それが変わると
+   * 静かに壊れる(取りこぼしが発生する)ため、ここで固定しておく。
+   * 変換後のバイト列(波ダッシュ0xA1 0xC1、全角NO 0xAD 0xE2)をデコードすると
+   * それぞれU+FF5E・U+2116に戻ることも合わせて確認し、既に変換済みのファイルも
+   * この判定に引っかかる(取りこぼされない)ことを保証する
+   */
+  test("already-converted bytes decode back to the target codepoints", async () => {
+    const waveDashUnifyConfig =
+      vscode.workspace.getConfiguration("waveDashUnify");
+    await waveDashUnifyConfig.update(
+      "fullwidthTildeToWaveDash",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+    await waveDashUnifyConfig.update(
+      "numeroSignToNumeroSign",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+
+    // 自動判定でEUC-JPと判定されるようにする
+    const fileConfig = vscode.workspace.getConfiguration("files");
+    await fileConfig.update(
+      "autoGuessEncoding",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+
+    // 波ダッシュ(0xA1 0xC1)のみ。EUC-JPと自動認識されるよう"ああああ"を前置する
+    // 文字列: "ああああ" + 波ダッシュ
+    const waveDashFile = tmp.fileSync();
+    fs.writeFileSync(
+      waveDashFile.name,
+      Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa1, 0xc1]),
+    );
+    const waveDashDocument = await vscode.workspace.openTextDocument(
+      waveDashFile.name,
+    );
+    assert.strictEqual(
+      waveDashDocument.encoding,
+      "eucjp",
+      "前提条件エラー: ファイルがEUC-JPと判定されなかった",
+    );
+    assert.strictEqual(
+      waveDashDocument
+        .getText()
+        .includes(String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT)),
+      true,
+      "波ダッシュ(0xA1 0xC1)がU+FF5Eにデコードされなかった",
+    );
+    assert.strictEqual(
+      extension.containsConvertTargetCharacters(waveDashDocument),
+      true,
+      "既に変換済みの波ダッシュが判定で取りこぼされた",
+    );
+
+    // 全角NO(0xAD 0xE2)のみ
+    // 文字列: "ああああ" + 全角NO
+    const numeroSignFile = tmp.fileSync();
+    fs.writeFileSync(
+      numeroSignFile.name,
+      Buffer.from([0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xad, 0xe2]),
+    );
+    const numeroSignDocument = await vscode.workspace.openTextDocument(
+      numeroSignFile.name,
+    );
+    assert.strictEqual(
+      numeroSignDocument.encoding,
+      "eucjp",
+      "前提条件エラー: ファイルがEUC-JPと判定されなかった",
+    );
+    assert.strictEqual(
+      numeroSignDocument
+        .getText()
+        .includes(String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT)),
+      true,
+      "全角NO(0xAD 0xE2)がU+2116にデコードされなかった",
+    );
+    assert.strictEqual(
+      extension.containsConvertTargetCharacters(numeroSignDocument),
+      true,
+      "既に変換済みの全角NOが判定で取りこぼされた",
+    );
+  });
+
+  /**
    * ステータスバーの初期化を行う関数をテストする
    * NOTE: テスト対象のsetupStatusBarItem()はグローバル変数の初期化を行う関数なのでテストしない
    */
