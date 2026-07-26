@@ -8,6 +8,15 @@ export const NUMERO_SIGN_CODE_POINT = 0x2116;
 
 // countSpecificCharactersでString#indexOfを使うために、事前に1文字だけの文字列に変換しておく
 // (いずれもサロゲートペアにならないコードポイントのため、1コード単位の文字列として扱える)
+//
+// WAVE_DASH_CHAR(U+301C)は、EUC-JPのファイルを扱う限りテキスト中に出現しない。
+// VS CodeのEUC-JPコーデックは 0xA1 0xC1(波ダッシュのバイト列)も
+// 0x8F 0xA2 0xB7(全角チルダのバイト列)も等しくU+FF5Eにデコードし、
+// 逆にU+301Cをエンコードすると表現できず'?'(0x3F)になる。
+// そのためWAVE_DASH_CHARを使ったカウントは実質デッドコードだが、
+// 将来UTF-8など他のエンコーディングを扱うようになればU+301Cが実際に
+// 現れうるため、意図的に残している(issue #635)。
+// この前提はsrc/test/suite/eucjp-encoding-invariants.test.tsで固定してある
 const WAVE_DASH_CHAR = String.fromCodePoint(WAVEDASH_CODE_POINT);
 const FULLWIDTH_TILDE_CHAR = String.fromCodePoint(FULLWIDTH_TILDE_CODE_POINT);
 const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
@@ -662,6 +671,11 @@ function countOccurrences(str: string, target: string): number {
  * 全角チルダ、波ダッシュ、およびNUMERO SIGNの個数を数える
  *
  * 全角チルダと波ダッシュは同じ文字として扱う
+ *
+ * EUC-JPのファイルではWAVE_DASH_CHAR(U+301C)の項が常に0件になり、
+ * 変換の前後でこのカウントは変化しない。理由と、それでも項を残している
+ * 判断についてはWAVE_DASH_CHARの定義箇所のコメントを参照
+ *
  * @param str 文字列
  * @returns 各文字の個数を含む辞書
  */
