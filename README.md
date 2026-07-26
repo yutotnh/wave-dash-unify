@@ -38,11 +38,23 @@ sequenceDiagram
     User ->> vscode: ファイル保存処理を依頼
     vscode ->> file: EUC-JPでファイルを保存
     vscode ->> extension: ファイルを保存したことを通知
-    extension ->> file: ファイルの中身を要求する
-    file ->> extension: ファイルの中身を返す
-    extension ->> extension: ファイルの中の置き換え対象文字を置き換える
-    extension ->> file: 変換した中身を保存する
+    extension ->> extension: 保存が続く間は待機する(連続保存中は待ち直す)
+
+    alt 対象ファイルがアクティブなエディタで開かれていない、または未保存の編集がある
+        extension ->> extension: 変換を先送りする(ファイルは書き換えない)
+        note over extension: エディタが再びアクティブになった時、または<br/>タブが閉じられた時に変換を再開する
+    else 対象ファイルがアクティブなエディタで開かれていて、未保存の編集も無い
+        extension ->> file: ファイルの中身を要求する
+        file ->> extension: ファイルの中身を返す
+        extension ->> extension: ファイルの中の置き換え対象文字を置き換える
+        extension ->> file: 変換した中身を保存する
+        extension ->> vscode: ファイルを再読込させ、保存状態を同期する
+    end
 ```
+
+連続して保存された場合に待機するのは、保存の直後にファイルを書き換えると VS Code の保存処理と競合してしまうためです
+
+同じ理由で、変換後のファイル状態を VS Code に同期する手段(再読込)はアクティブなエディタにしか効きません。そのため対象ファイルがアクティブなエディタで開かれていない間は変換そのものを行わず、再びアクティブになったタイミングやタブが閉じられたタイミングまで待ちます。この間、ファイルはディスク上では未変換(全角チルダなどを含む正当な EUC-JP ファイル)のままです
 
 ## Extension Settings
 
@@ -50,14 +62,6 @@ sequenceDiagram
 - `waveDashUnify.fullwidthTildeToWaveDash`: 全角チルダ (0x8F 0xA2 0xB7) を波ダッシュ (0xA1 0xC1) に変換します
 - `waveDashUnify.numeroSignToNumeroSign`: 全角NO (0x8F 0xA2 0xF1) を全角NO (0xAD 0xE2) に変換します
 - `waveDashUnify.statusBarFormat`: ステータス バーのフォーマット
-
-## Known Issues
-
-### [Ctrl+S を長押しすると、ファイルの上書きに失敗する](https://github.com/yutotnh/wave-dash-unify/issues/13)
-
-`Ctrl+S`を長押しするなどして、短時間に連続して`～`の含まれる EUC-JP のファイルを保存した場合に、下記画像のようなエラーが発生します
-
-![overwrite error](./doc/overwrite-error.png)
 
 ## Release Notes
 
