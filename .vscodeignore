@@ -9,7 +9,7 @@ src/**
 .npmrc
 webpack.config.js
 **/tsconfig.json
-**/.eslintrc.json
+**/eslint.config.js
 **/*.map
 **/*.ts
 .prettierignore
