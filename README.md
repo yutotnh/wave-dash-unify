@@ -39,14 +39,22 @@ sequenceDiagram
     vscode ->> file: EUC-JPでファイルを保存
     vscode ->> extension: ファイルを保存したことを通知
     extension ->> extension: 保存が続く間は待機する(連続保存中は待ち直す)
-    extension ->> file: ファイルの中身を要求する
-    file ->> extension: ファイルの中身を返す
-    extension ->> extension: ファイルの中の置き換え対象文字を置き換える
-    extension ->> file: 変換した中身を保存する
-    extension ->> vscode: ファイルを再読込させ、保存状態を同期する
+
+    alt 対象ファイルがアクティブなエディタで開かれていない、または未保存の編集がある
+        extension ->> extension: 変換を先送りする(ファイルは書き換えない)
+        note over extension: エディタが再びアクティブになった時、または<br/>タブが閉じられた時に変換を再開する
+    else 対象ファイルがアクティブなエディタで開かれていて、未保存の編集も無い
+        extension ->> file: ファイルの中身を要求する
+        file ->> extension: ファイルの中身を返す
+        extension ->> extension: ファイルの中の置き換え対象文字を置き換える
+        extension ->> file: 変換した中身を保存する
+        extension ->> vscode: ファイルを再読込させ、保存状態を同期する
+    end
 ```
 
 連続して保存された場合に待機するのは、保存の直後にファイルを書き換えると VS Code の保存処理と競合してしまうためです
+
+同じ理由で、変換後のファイル状態を VS Code に同期する手段(再読込)はアクティブなエディタにしか効きません。そのため対象ファイルがアクティブなエディタで開かれていない間は変換そのものを行わず、再びアクティブになったタイミングやタブが閉じられたタイミングまで待ちます。この間、ファイルはディスク上では未変換(全角チルダなどを含む正当な EUC-JP ファイル)のままです
 
 ## Extension Settings
 
