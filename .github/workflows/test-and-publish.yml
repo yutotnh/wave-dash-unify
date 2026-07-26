@@ -43,6 +43,11 @@ jobs:
       - name: Publish to Open VSX
         if: success() && startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest' && env.OVSX_PAT != ''
         run: npm run vscode:publish-ovsx
+        # Open VSXへの公開が失敗しても、既存のVS Code Marketplaceへの公開・
+        # GitHub Releaseの作成(Create package/Release)は継続させる。
+        # これらは元々独立した公開先であり、片方の失敗でもう片方まで
+        # ブロックされるのは意図しない結合のため
+        continue-on-error: true
       - name: Create package
         run: npm run vscode:package
       - name: Release
