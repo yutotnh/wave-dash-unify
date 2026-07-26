@@ -22,9 +22,12 @@ or each release's GitHub Releases page for those.
 
 ### Changed
 
-- 変換処理の実行時間を短縮しました。([#517](https://github.com/yutotnh/wave-dash-unify/pull/517))
+- 対応するVS Codeの最小バージョンを1.100.0以降に変更しました。1.100.0より前のVS Codeでは0.3系をご利用ください。([#517](https://github.com/yutotnh/wave-dash-unify/pull/517))
+- EUC-JPの判定をVS Codeの標準APIに変更し、変換処理の実行時間を短縮しました。([#517](https://github.com/yutotnh/wave-dash-unify/pull/517))
 
 ## [0.3.3] - 2025-05-12
+
+VS Code 1.100.0未満の環境向けのリリースです(0.4.1と同じ変更を含みます)。
 
 ### Changed
 
@@ -34,7 +37,7 @@ or each release's GitHub Releases page for those.
 
 ### Changed
 
-- 対応するVS Codeの最小バージョンを1.66.0以降に変更しました。([#509](https://github.com/yutotnh/wave-dash-unify/pull/509))
+- 対応するVS Codeの最小バージョンを1.78.0から1.66.0に引き下げ、より古いVS Codeでも利用できるようにしました。([#511](https://github.com/yutotnh/wave-dash-unify/pull/511))
 
 ## [0.3.1] - 2025-01-19
 
@@ -72,10 +75,6 @@ or each release's GitHub Releases page for those.
 
 - ステータスバーに全角チルダと波ダッシュの個数を表示するようにしました。([#178](https://github.com/yutotnh/wave-dash-unify/pull/178))
 - 変換の有効/無効を切り替えるコマンドを追加しました。([#180](https://github.com/yutotnh/wave-dash-unify/pull/180))
-
-### Changed
-
-- 設定の説明文の表記を「full-width」から「fullwidth」に統一しました。([#181](https://github.com/yutotnh/wave-dash-unify/pull/181))
 
 ## [0.0.3] - 2023-07-23
 
