@@ -92,7 +92,7 @@
     "cspell": "^9.0.2",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.5",
-    "glob": "^11.0.3",
+    "glob": "^12.0.0",
     "mocha": "^11.5.0",
     "prettier": "^3.5.3",
     "tmp": "^0.2.7",
