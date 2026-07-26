@@ -16,3 +16,4 @@ webpack.config.js
 .cspell.json
 doc/overwrite-error.png
 .nvmrc
+.claude/**
