@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
-import { createDebouncer } from "./debounce";
+import { createDebouncer, Debouncer } from "./debounce";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
@@ -39,16 +39,22 @@ const statusBarUpdateDebouncer = createDebouncer(
 );
 
 // 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)
-// timerがundefinedのものは「dirtyだった、またはアクティブエディタでなかったため
+// postponedがtrueのものは「dirtyだった、またはアクティブエディタでなかったため
 // 変換を先送りした」状態で、次の保存・アクティブ化・クローズ・deactivateの
-// いずれかのタイミングで変換される(判定はrunScheduledConversionを参照)
+// いずれかのタイミングで変換される(判定はrunScheduledConversionを参照)。
+// デバウンスのタイマー自体はsaveConversionDebouncersが個別に保持する
 const pendingConversions = new Map<
   string,
   {
     document: vscode.TextDocument;
-    timer: ReturnType<typeof setTimeout> | undefined;
+    postponed: boolean;
   }
 >();
+
+// 保存後変換のデバウンサ(キー: ドキュメントのURI文字列)。ステータスバー更新の
+// デバウンス(statusBarUpdateDebouncer)と同じcreateDebouncerを使うことで、
+// キャンセル・再スケジュールのロジックを共有する
+const saveConversionDebouncers = new Map<string, Debouncer>();
 
 export function activate(context: vscode.ExtensionContext) {
   setupStatusBarItem();
@@ -188,7 +194,7 @@ export function replaceSpecificCharacters(
     return false;
   }
 
-  return convertSavedFile(document.fileName);
+  return convertSavedFile(document);
 }
 
 /**
@@ -197,17 +203,23 @@ export function replaceSpecificCharacters(
  * ドキュメントのテキストを参照しないため、エディタ上の未保存の編集内容に
  * かかわらず「最後に保存された内容」を基準に変換できる
  *
- * @param fileName 変換対象のファイルのパス
+ * @param document 変換対象のドキュメント
  * @returns `true`: ファイルを書き換えた, `false`: 書き換え不要だった
  */
-function convertSavedFile(fileName: string): boolean {
-  // 変換をスケジュールした後に設定で無効化された場合は何もしない。
-  // スケジュール時点(scheduleSaveConversion)でしか確認しないと、
-  // 無効化した後にクローズやdeactivateが起きた時点で、無効化を無視して
-  // ディスクを書き換えてしまう
-  if (!isConvertEnabled()) {
+function convertSavedFile(document: vscode.TextDocument): boolean {
+  // 変換をスケジュールした後に設定で無効化・EUC-JP以外へのエンコード変更が
+  // 行われた場合は何もしない。スケジュール時点(scheduleSaveConversion)や
+  // replaceSpecificCharactersでしか確認しないと、isClosed分岐や
+  // flushPendingConversionがこの関数を直接呼ぶ経路(スケジュール後にクローズや
+  // deactivateが起きた場合)で無効化・エンコード変更を無視してディスクを
+  // 書き換えてしまう(例: EUC-JPで保存してスケジュールが成立した後、
+  // 「エンコード付きで保存」でUTF-8に変換してからタブを閉じる、という手順を
+  // 踏むとこのチェックなしにはファイルを破損しうる)
+  if (!isConvertEnabled() || !isEUCJP(document)) {
     return false;
   }
+
+  const fileName = document.fileName;
 
   // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
@@ -237,6 +249,11 @@ function convertSavedFile(fileName: string): boolean {
  * VS Codeが記録しているファイル状態(etag)とディスクがズレないため、
  * 「上書きに失敗しました」(issue #13)が発生しない
  *
+ * タイマー自体はドキュメントごと(URIごと)にcreateDebouncerで作成し
+ * saveConversionDebouncersに保持する。2回目以降の保存では既存のDebouncerを
+ * 再利用してscheduleし直すだけで、キャンセル・再作成のロジックはcreateDebouncer側に
+ * 任せられる
+ *
  * @param document 保存されたドキュメント
  */
 function scheduleSaveConversion(document: vscode.TextDocument) {
@@ -251,16 +268,18 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
 
   const key = document.uri.toString();
 
-  const pending = pendingConversions.get(key);
-  if (pending?.timer !== undefined) {
-    clearTimeout(pending.timer);
+  pendingConversions.set(key, { document, postponed: false });
+
+  let debouncer = saveConversionDebouncers.get(key);
+  if (!debouncer) {
+    debouncer = createDebouncer(
+      () => runScheduledConversion(key),
+      SAVE_CONVERSION_DEBOUNCE_MS,
+    );
+    saveConversionDebouncers.set(key, debouncer);
   }
 
-  const timer = setTimeout(() => {
-    runScheduledConversion(key, document);
-  }, SAVE_CONVERSION_DEBOUNCE_MS);
-
-  pendingConversions.set(key, { document, timer });
+  debouncer.schedule();
 }
 
 /**
@@ -282,12 +301,19 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
  * 再開(resumePendingConversionIfActive)・クローズ・deactivateのいずれかで実行される
  *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
- * @param document 変換対象のドキュメント
  */
-function runScheduledConversion(key: string, document: vscode.TextDocument) {
+function runScheduledConversion(key: string) {
+  const pending = pendingConversions.get(key);
+  if (!pending) {
+    return;
+  }
+
+  const { document } = pending;
+
   if (document.isClosed) {
     pendingConversions.delete(key);
-    convertSavedFile(document.fileName);
+    saveConversionDebouncers.delete(key);
+    convertSavedFile(document);
     return;
   }
 
@@ -295,8 +321,8 @@ function runScheduledConversion(key: string, document: vscode.TextDocument) {
     document.isDirty ||
     vscode.window.activeTextEditor?.document !== document
   ) {
-    // 変換待ちの印だけを残して先送りする(timer: undefined)
-    pendingConversions.set(key, { document, timer: undefined });
+    // 変換待ちの印だけを残して先送りする
+    pendingConversions.set(key, { document, postponed: true });
     return;
   }
 
@@ -305,7 +331,7 @@ function runScheduledConversion(key: string, document: vscode.TextDocument) {
   const written = replaceSpecificCharacters(document);
 
   if (written) {
-    // awaitできない(呼び出し元がsetTimeoutのコールバック)ため、
+    // awaitできない(呼び出し元がDebouncerのコールバック)ため、
     // 内部でエラーを処理させる。revertが失敗しても追加のリカバリ手段は無い
     void syncEditorWithConvertedFile(document);
   }
@@ -315,11 +341,11 @@ function runScheduledConversion(key: string, document: vscode.TextDocument) {
  * 先送りされていた変換を、ドキュメントがアクティブになったタイミングで再開する
  *
  * runScheduledConversionの3(アクティブエディタでなければ先送り)の受け皿。
- * 先送り中(timer: undefined)のドキュメントが再びアクティブになった時だけ
+ * 先送り中(postponed: true)のドキュメントが再びアクティブになった時だけ
  * runScheduledConversionを呼び直し、変換してよいかを再判定させる
  * (dirtyであれば引き続き先送りされる)
  *
- * 保存直後のデバウンス待ち(timer !== undefined)はここでは触らない。
+ * 保存直後のデバウンス待ち(postponed: false)はここでは触らない。
  * デバウンスタイマー満了時にrunScheduledConversion自身が同じ判定を行う
  *
  * @param document アクティブになったエディタのドキュメント。エディタが無い場合はundefined
@@ -333,20 +359,18 @@ function resumePendingConversionIfActive(
 
   const key = document.uri.toString();
   const pending = pendingConversions.get(key);
-  if (!pending || pending.timer !== undefined) {
+  if (!pending || !pending.postponed) {
     return;
   }
 
-  runScheduledConversion(key, document);
+  runScheduledConversion(key);
 }
 
 /**
  * 変換待ちのドキュメントがあれば、その場で変換する
  *
- * onDidCloseTextDocumentとdeactivateから呼ばれる。いずれもドキュメントが
- * 破棄される(またはこれ以上保存が起きない)場面のため、ディスクを書き換えても
- * 以降の保存と競合しない。エディタ上の編集が破棄されている可能性があるため、
- * ドキュメントのテキストは参照せずディスク上のファイルを直接変換する
+ * onDidCloseTextDocumentとdeactivateから呼ばれる。エディタ上の編集が破棄されている
+ * 可能性があるため、ドキュメントのテキストは参照せずディスク上のファイルを直接変換する
  *
  * onDidCloseTextDocumentは「ドキュメントが破棄された時」に発火するイベントであり、
  * VS CodeのAPIドキュメントにも「タブを閉じた時に発火する保証はない」と明記されている
@@ -354,18 +378,36 @@ function resumePendingConversionIfActive(
  * 即座に変換される」ことは保証しない。破棄される(または拡張機能がdeactivateする)まで
  * 変換待ちのまま残ることを許容する
  *
+ * 書き込みが発生した場合はsyncEditorWithConvertedFileでetagの同期も試みる。
+ * onDidCloseTextDocument経由(convertsEvenIfDirty: false)ではドキュメントは
+ * 既にisClosedなのでactiveTextEditorと一致せず実質no-opになる(モデルが
+ * 存在しないためetagの不整合はそもそも起きない)。deactivate経由
+ * (convertsEvenIfDirty: true)では、対象が「拡張機能ホストの再起動」などで
+ * まだ生きているエディタモデルの場合があり、そのドキュメントがアクティブかつ
+ * 非dirtyであればここでrevertしてetagを同期できる。postponedがdirty起因、
+ * または非アクティブ起因の場合はsyncEditorWithConvertedFile内部のチェックで
+ * 何もしない(revertはアクティブかつ非dirtyの場合のみ意味を持ち、それ以外を
+ * 外部から同期する公開APIはVS Codeに存在しないため、残余リスクとして許容する)
+ *
+ * ドキュメントがクローズされる際は、変換が既にrunScheduledConversionの成功パスで
+ * 完了していてpendingConversionsにエントリが残っていない場合でも、
+ * scheduleSaveConversionが作成したDebouncerを必ず解放する。成功パスは
+ * pendingConversionsのエントリだけを削除しDebouncerオブジェクト自体は
+ * (同じファイルへの次回保存で再利用できるよう)残すため、ここで解放しないと
+ * 一度でも保存されたEUC-JPファイルのURIごとにオブジェクトがsaveConversionDebouncers
+ * に溜まり続けてしまう
+ *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
+ * @param convertsEvenIfDirty `true`: dirtyなドキュメントでも変換する(deactivate用)
  */
 function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
+  saveConversionDebouncers.get(key)?.cancel();
+  saveConversionDebouncers.delete(key);
+
   const pending = pendingConversions.get(key);
   if (!pending) {
     return;
   }
-
-  if (pending.timer !== undefined) {
-    clearTimeout(pending.timer);
-  }
-  pendingConversions.delete(key);
 
   const document = pending.document;
 
@@ -374,11 +416,21 @@ function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
   // ただしdeactivate時はこれ以降の保存が起きないため、dirtyでも変換する
   // (ここでスキップすると変換されないまま終了してしまう。hot exitが有効な場合、
   //  dirtyなドキュメントは確認ダイアログなしで保持されるため、この状態は実際に起こり得る)
+  //
+  // このガードはpendingConversionsを削除する前に判定する。先に削除すると、
+  // 変換をスキップした場合でも先送りされていた変換の記録ごと失われてしまい、
+  // 以降の保存・アクティブ化・deactivateのいずれからも二度と再試行されなくなる
   if (!convertsEvenIfDirty && !document.isClosed && document.isDirty) {
     return;
   }
 
-  convertSavedFile(document.fileName);
+  pendingConversions.delete(key);
+
+  const written = convertSavedFile(document);
+
+  if (written) {
+    void syncEditorWithConvertedFile(document);
+  }
 }
 
 /**
@@ -429,6 +481,26 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
 }
 
 /**
+ * 変換対象文字(全角チルダ、全角NO)ごとの有効/無効設定を返す
+ *
+ * containsConvertTargetCharactersとreplaceSpecificCharactersInBufferの
+ * 両方で同じ設定を読むため、読み込み処理を共通化する
+ *
+ * @returns 各変換対象文字の有効/無効設定
+ */
+function getConvertTargetConfig(): {
+  convertsFullwidthTilde: boolean;
+  convertsNumeroSign: boolean;
+} {
+  const config = vscode.workspace.getConfiguration("waveDashUnify");
+
+  return {
+    convertsFullwidthTilde: config.get("fullwidthTildeToWaveDash") as boolean,
+    convertsNumeroSign: config.get("numeroSignToNumeroSign") as boolean,
+  };
+}
+
+/**
  * ドキュメントに変換対象文字(全角チルダ、全角NO)が含まれるかを判定する
  *
  * 設定で変換が無効化されている文字は判定対象に含めない
@@ -442,12 +514,8 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
 export function containsConvertTargetCharacters(
   document: vscode.TextDocument,
 ): boolean {
-  const config = vscode.workspace.getConfiguration("waveDashUnify");
-
-  const convertsFullwidthTilde = config.get(
-    "fullwidthTildeToWaveDash",
-  ) as boolean;
-  const convertsNumeroSign = config.get("numeroSignToNumeroSign") as boolean;
+  const { convertsFullwidthTilde, convertsNumeroSign } =
+    getConvertTargetConfig();
 
   if (!convertsFullwidthTilde && !convertsNumeroSign) {
     return false;
@@ -503,12 +571,8 @@ export function isEUCJP(str: vscode.TextDocument): boolean {
  * @returns 変換後の文字列
  */
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
-  const config = vscode.workspace.getConfiguration("waveDashUnify");
-
-  const convertsFullwidthTilde = config.get(
-    "fullwidthTildeToWaveDash",
-  ) as boolean;
-  const convertsNumeroSign = config.get("numeroSignToNumeroSign") as boolean;
+  const { convertsFullwidthTilde, convertsNumeroSign } =
+    getConvertTargetConfig();
 
   if (!convertsFullwidthTilde && !convertsNumeroSign) {
     return str;
@@ -657,9 +721,16 @@ export function deactivate() {
   statusBarUpdateDebouncer.cancel();
 
   // 変換待ちのファイルを残さないように、終了前にすべて変換する。
-  // これ以降の保存は起きないため、dirtyなものも変換する(第2引数)
+  // これ以降の保存は起きないため、dirtyなものも変換する(第2引数)。
+  // 1件のファイルアクセス失敗(外部でファイルが削除された場合など)が
+  // 残りのキーのflushとstatusBarItem.dispose()を止めないよう、
+  // キーごとにエラーを分離する
   for (const key of [...pendingConversions.keys()]) {
-    flushPendingConversion(key, true);
+    try {
+      flushPendingConversion(key, true);
+    } catch {
+      // deactivate中の失敗に追加のリカバリ手段は無いため、ここでは無視する
+    }
   }
 
   if (statusBarItem) {

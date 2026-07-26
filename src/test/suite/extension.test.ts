@@ -649,6 +649,14 @@ suite("Extension Test Suite", () => {
     });
     await document.save();
 
+    // 保存後の変換はデバウンスされるため、誤ってスケジュールされていれば
+    // 実行されているはずの時間まで待ってから内容を確認する。document.save()の
+    // 直後に読むと、変換がまだ実行されていないだけで「変化しなかった」と
+    // 誤判定してしまい、この比較が実質的に何も検証しないことになる
+    await new Promise((resolve) =>
+      setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+    );
+
     const actual = fs.readFileSync(tmpFile.name);
     assert.strictEqual(
       actual.toString("hex"),
