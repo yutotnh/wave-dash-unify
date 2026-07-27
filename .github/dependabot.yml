@@ -11,6 +11,13 @@ updates:
       interval: "daily"
     reviewers:
       - "yutotnh"
+    ignore:
+      # Keep @types/node aligned with VS Code's Node.js major (see .nvmrc).
+      # Allow patch/minor updates within the major, but ignore major bumps so
+      # the type definitions don't drift ahead of the runtime Node.js version.
+      # Bump this rule when .nvmrc moves to a new Node.js major.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/" # Location of package manifests
