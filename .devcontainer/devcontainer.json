@@ -4,7 +4,10 @@
   "name": "Node.js & TypeScript",
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    // Use the repository root as the build context so the Dockerfile can read
+    // the root-level .nvmrc (the single source of truth for the Node.js version).
+    "context": ".."
   },
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
