@@ -10,11 +10,10 @@ import * as vscode from "vscode";
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
 
-  test("Cleanup", async () => {
-    // テスト後にファイルを削除する
-    tmp.setGracefulCleanup();
-
-    // 設定をリセットする
+  /**
+   * このスイートが変更する設定をすべてデフォルト値に戻す
+   */
+  async function resetConfiguration() {
     const config = vscode.workspace.getConfiguration("waveDashUnify");
     const settings = [
       "enableConvert",
@@ -28,6 +27,29 @@ suite("Extension Test Suite", () => {
         config.update(setting, undefined, vscode.ConfigurationTarget.Global),
       ),
     );
+  }
+
+  suiteSetup(async () => {
+    // テスト後にファイルを削除する
+    tmp.setGracefulCleanup();
+
+    // ConfigurationTarget.Globalの書き込みはテスト用のuser-data-dirに残るため、
+    // 前回の実行が中断した場合などは開始時点の設定が既に汚れていることがある。
+    // 1つ目のテストを実行順・過去の実行履歴に依存させないため、ここでも戻す
+    await resetConfiguration();
+  });
+
+  /**
+   * 各テストが変更した設定をデフォルト値に戻す
+   *
+   * 設定をtest()の中で元に戻す方式だと、restoreを書き忘れたテストの影響が
+   * 後続のテストに漏れる。特にfullwidthTildeToWaveDash・numeroSignToNumeroSignが
+   * falseのまま残ると、containsConvertTargetCharactersの早期returnによって
+   * 変換が一切行われなくなり、原因の分かりにくい失敗になる。
+   * teardown()で毎回リセットすることで、テストの実行順に依存しないようにする
+   */
+  teardown(async () => {
+    await resetConfiguration();
   });
 
   /**
