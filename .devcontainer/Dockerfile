@@ -1,7 +1,9 @@
 # The image tag is only a starting point; the effective Node.js version is set
 # from the repository's .nvmrc below, which is the single source of truth
 # (shared with CI via actions/setup-node and with the VS Code Extension Host).
-FROM mcr.microsoft.com/devcontainers/typescript-node:24
+# Pin the Debian variant to bookworm: the default "trixie" tag lacks the
+# moby-cli packages the docker-in-docker devcontainer feature needs.
+FROM mcr.microsoft.com/devcontainers/typescript-node:24-bookworm
 
 # Install and activate the exact Node.js version pinned in .nvmrc via the nvm
 # that ships with the base image, so the devcontainer matches CI and the
