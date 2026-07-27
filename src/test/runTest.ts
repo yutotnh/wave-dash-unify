@@ -1,30 +1,43 @@
 import * as path from "path";
+import { parseArgs } from "node:util";
 
 import {
   runTests,
   downloadAndUnzipVSCode,
   TestOptions,
 } from "@vscode/test-electron";
-import yargs from "yargs";
-import { hideBin } from "yargs/helpers";
 
 /**
  * CLI 引数を解析してオプションを取得する
  * @returns {Object} CLI 引数のオプション
  */
 function parseCliArgs() {
-  const argv = yargs(hideBin(process.argv))
-    .option("vscode-version", {
-      type: "string",
-      description: "VS Code のバージョンを指定",
-    })
-    .help("help")
-    .alias("help", "h")
-    .parseSync();
+  const { values } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      // CLI フラグ名 (--vscode-version) は kebab-case である必要があるため、
+      // camelCase を要求する naming-convention の対象から除外する。
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      "vscode-version": { type: "string" },
+      help: { type: "boolean", short: "h" },
+    },
+  });
+
+  if (values.help) {
+    console.log(
+      [
+        "Usage: npm test -- [options]",
+        "",
+        "Options:",
+        "  --vscode-version <version>  VS Code のバージョンを指定",
+        "  -h, --help                  ヘルプを表示",
+      ].join("\n"),
+    );
+    process.exit(0);
+  }
 
   return {
-    vscodeVersion:
-      typeof argv.vscodeVersion === "string" ? argv.vscodeVersion : undefined,
+    vscodeVersion: values["vscode-version"],
   };
 }
 
