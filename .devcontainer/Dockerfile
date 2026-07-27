@@ -13,7 +13,8 @@ COPY .nvmrc /tmp/.nvmrc
 RUN su node -c '. "$NVM_DIR/nvm.sh" \
     && nvm install "$(cat /tmp/.nvmrc)" \
     && nvm alias default "$(cat /tmp/.nvmrc)" \
-    && nvm use default' \
+    && nvm use default \
+    && test "$(node -v)" = "v$(cat /tmp/.nvmrc)"' \
     && rm -f /tmp/.nvmrc
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \

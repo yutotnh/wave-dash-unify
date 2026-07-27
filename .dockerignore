@@ -1,0 +1,9 @@
+# The devcontainer build context is the repository root (see
+# .devcontainer/devcontainer.json) but the Dockerfile only needs .nvmrc.
+# Exclude heavy/generated paths so local rebuilds don't ship them to the daemon.
+.git
+node_modules
+out
+dist
+*.vsix
+.vscode-test
