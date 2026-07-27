@@ -12,6 +12,37 @@ const WAVE_DASH_CHAR = String.fromCodePoint(WAVEDASH_CODE_POINT);
 const FULLWIDTH_TILDE_CHAR = String.fromCodePoint(FULLWIDTH_TILDE_CODE_POINT);
 const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
 
+/**
+ * 変換対象の一覧
+ *
+ * 「何を変換するか」の唯一の定義。Unicode文字での判定
+ * (containsConvertTargetCharacters)とバイト列での変換
+ * (replaceSpecificCharactersInBuffer)の両方をこのテーブルから駆動するため、
+ * 変換対象を増やすときはここに1エントリ追加するだけで両方に反映される
+ *
+ * 各エントリは以下を満たす必要がある(replaceSpecificCharactersInBufferの
+ * 実装がこれらに依存している)
+ * - fromはEUC-JPのSS3バイト(0x8F)で始まる: SS3の位置だけをindexOfで走査して
+ *   候補位置を絞るため
+ * - to.length <= from.length: 出力用Bufferを入力と同じ長さで確保するため
+ */
+export const CONVERT_TARGETS = [
+  {
+    char: FULLWIDTH_TILDE_CHAR,
+    configKey: "fullwidthTildeToWaveDash",
+    from: [0x8f, 0xa2, 0xb7], // 全角チルダ
+    to: [0xa1, 0xc1], // 波ダッシュ
+  },
+  {
+    char: NUMERO_SIGN_CHAR,
+    configKey: "numeroSignToNumeroSign",
+    from: [0x8f, 0xa2, 0xf1], // 全角NO
+    to: [0xad, 0xe2], // 全角NO
+  },
+] as const;
+
+type ConvertTarget = (typeof CONVERT_TARGETS)[number];
+
 // ステータスバー更新のデバウンス時間(ms)
 // キーストロークのたびに全文スキャンが走らないように、この時間内の連続更新要求を1回にまとめる
 const STATUS_BAR_UPDATE_DEBOUNCE_MS = 200;
@@ -481,31 +512,27 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
 }
 
 /**
- * 変換対象文字(全角チルダ、全角NO)ごとの有効/無効設定を返す
+ * 設定で変換が有効になっている変換対象を返す
  *
  * containsConvertTargetCharactersとreplaceSpecificCharactersInBufferの
  * 両方で同じ設定を読むため、読み込み処理を共通化する
  *
- * @returns 各変換対象文字の有効/無効設定
+ * @returns 有効な変換対象の一覧(すべて無効なら空配列)
  */
-function getConvertTargetConfig(): {
-  convertsFullwidthTilde: boolean;
-  convertsNumeroSign: boolean;
-} {
+function getConvertTargetConfig(): ConvertTarget[] {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
 
-  return {
-    convertsFullwidthTilde: config.get("fullwidthTildeToWaveDash") as boolean,
-    convertsNumeroSign: config.get("numeroSignToNumeroSign") as boolean,
-  };
+  return CONVERT_TARGETS.filter(
+    (target) => config.get<boolean>(target.configKey) === true,
+  );
 }
 
 /**
- * ドキュメントに変換対象文字(全角チルダ、全角NO)が含まれるかを判定する
+ * ドキュメントに変換対象文字(CONVERT_TARGETSのchar)が含まれるかを判定する
  *
  * 設定で変換が無効化されている文字は判定対象に含めない
  * (例: fullwidthTildeToWaveDashがfalseなら全角チルダの有無は見ない)。
- * 両方の設定がfalseの場合は変換が絶対に起きないため、document.getText()
+ * すべての設定がfalseの場合は変換が絶対に起きないため、document.getText()
  * (全文のUTF-16コピーを作る)を呼ばずに終了する
  *
  * @param document 判定対象のドキュメント(保存直後のものを想定)
@@ -514,24 +541,15 @@ function getConvertTargetConfig(): {
 export function containsConvertTargetCharacters(
   document: vscode.TextDocument,
 ): boolean {
-  const { convertsFullwidthTilde, convertsNumeroSign } =
-    getConvertTargetConfig();
+  const targets = getConvertTargetConfig();
 
-  if (!convertsFullwidthTilde && !convertsNumeroSign) {
+  if (targets.length === 0) {
     return false;
   }
 
   const text = document.getText();
 
-  if (convertsFullwidthTilde && text.includes(FULLWIDTH_TILDE_CHAR)) {
-    return true;
-  }
-
-  if (convertsNumeroSign && text.includes(NUMERO_SIGN_CHAR)) {
-    return true;
-  }
-
-  return false;
+  return targets.some((target) => text.includes(target.char));
 }
 
 /**
@@ -560,26 +578,48 @@ export function isEUCJP(str: vscode.TextDocument): boolean {
 }
 
 /**
- * 与えられた文字列中の特定文字を置き換えた文字列を返す
- * 置き換える文字は以下
- * | 置き換え前                  | 置き換え後             |
- * | --------------------------- | ---------------------- |
- * | 全角チルダ (0x8F 0xA2 0xB7) | 波ダッシュ (0xA1 0xC1) |
- * | 全角NO     (0x8F 0xA2 0xF1) | 全角NO     (0xAD 0xE2) |
+ * バッファの指定位置がバイト列と一致するかを判定する
  *
- * @param str 変換したい文字列
- * @returns 変換後の文字列
+ * @param str 検索対象のバッファ
+ * @param position 比較を開始する位置
+ * @param bytes 一致を確認するバイト列
+ * @returns `true`: positionからbytesと一致する, `false`: 一致しない
+ */
+function matchesBytesAt(
+  str: Buffer,
+  position: number,
+  bytes: readonly number[],
+): boolean {
+  if (position + bytes.length > str.length) {
+    return false;
+  }
+
+  for (let offset = 0; offset < bytes.length; offset++) {
+    if (str[position + offset] !== bytes[offset]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * 与えられたバッファ中の特定のバイト列を置き換えたバッファを返す
+ *
+ * 置き換える対象はCONVERT_TARGETS(設定で有効なものだけ)
+ *
+ * @param str 変換したいバッファ
+ * @returns 変換後のバッファ(変換対象が1つも無ければ引数のバッファそのもの)
  */
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
-  const { convertsFullwidthTilde, convertsNumeroSign } =
-    getConvertTargetConfig();
+  const targets = getConvertTargetConfig();
 
-  if (!convertsFullwidthTilde && !convertsNumeroSign) {
+  if (targets.length === 0) {
     return str;
   }
 
-  // 変換対象はいずれも 0x8F 0xA2 で始まる3バイト列のため、
-  // ネイティブ実装で高速な indexOf で先頭バイトの候補位置だけを走査する
+  // 変換対象のバイト列はいずれもSS3で始まるため、ネイティブ実装で高速な
+  // indexOfでSS3の位置だけを走査し、その候補位置でのみバイト列を比較する
   const SS3 = 0x8f; // EUC-JPのシングルシフト(SS3)バイト。変換対象の先頭バイト
 
   let converted: Buffer | undefined;
@@ -587,28 +627,24 @@ export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
   let copiedPos = 0; // strのコピー済み位置
   let i = str.indexOf(SS3);
 
-  while (i !== -1 && i + 2 < str.length) {
-    let replacement: [number, number] | undefined;
+  while (i !== -1) {
+    const position = i;
+    const target = targets.find((candidate) =>
+      matchesBytesAt(str, position, candidate.from),
+    );
 
-    if (str[i + 1] === 0xa2) {
-      if (convertsFullwidthTilde && str[i + 2] === 0xb7) {
-        replacement = [0xa1, 0xc1]; // 全角チルダ -> 波ダッシュ
-      } else if (convertsNumeroSign && str[i + 2] === 0xf1) {
-        replacement = [0xad, 0xe2]; // 全角NO -> 全角NO
-      }
-    }
-
-    if (replacement) {
-      // 3バイトを2バイトに置き換えるため、変換後は元の長さを超えない
+    if (target) {
+      // to.length <= from.lengthのため、変換後は元の長さを超えない
       converted ??= Buffer.allocUnsafe(str.length);
 
-      writePos += str.copy(converted, writePos, copiedPos, i);
-      converted[writePos++] = replacement[0];
-      converted[writePos++] = replacement[1];
-      copiedPos = i + 3;
+      writePos += str.copy(converted, writePos, copiedPos, position);
+      for (const byte of target.to) {
+        converted[writePos++] = byte;
+      }
+      copiedPos = position + target.from.length;
       i = str.indexOf(SS3, copiedPos);
     } else {
-      i = str.indexOf(SS3, i + 1);
+      i = str.indexOf(SS3, position + 1);
     }
   }
 

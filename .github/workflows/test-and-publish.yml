@@ -67,3 +67,4 @@ jobs:
         if: runner.os == 'Linux'
       - run: npm test -- --vscode-version 1.100.0
         if: runner.os != 'Linux'
+        shell: bash
