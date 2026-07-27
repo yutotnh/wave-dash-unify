@@ -1,4 +1,5 @@
 import * as path from "path";
+import { parseArgs } from "node:util";
 
 import {
   runTests,
@@ -6,42 +7,37 @@ import {
   TestOptions,
 } from "@vscode/test-electron";
 
-// yargs 18 は CJS 向け export を持たない ESM 専用パッケージになった。
-// tsconfig.json の "module": "commonjs" のもとで `import yargs from "yargs"` や
-// `await import("yargs")` を書くと、tsc はそれを `require("yargs")` に変換して
-// しまい、Node の同期 require() では ESM を読み込めず ERR_REQUIRE_ESM で失敗する
-// (Node 20.19 / 22.12 以降の require(esm) サポートがあれば動くこともあるが、
-// 例えば .devcontainer/Dockerfile が使う node:20 系イメージのように、それより
-// 古い Node ではこの方法は使えない)。
-// `Function` 経由で import() を呼び出すことで tsc による書き換えを回避し、
-// Node のバージョンに関わらず動作する本物の非同期 ESM import を発生させる。
-const dynamicImport = new Function(
-  "specifier",
-  "return import(specifier);",
-) as <T>(specifier: string) => Promise<T>;
-
 /**
  * CLI 引数を解析してオプションを取得する
  * @returns {Object} CLI 引数のオプション
  */
-async function parseCliArgs() {
-  const { default: yargs } =
-    await dynamicImport<typeof import("yargs")>("yargs");
-  const { hideBin } =
-    await dynamicImport<typeof import("yargs/helpers")>("yargs/helpers");
+function parseCliArgs() {
+  const { values } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      // CLI フラグ名 (--vscode-version) は kebab-case である必要があるため、
+      // camelCase を要求する naming-convention の対象から除外する。
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      "vscode-version": { type: "string" },
+      help: { type: "boolean", short: "h" },
+    },
+  });
 
-  const argv = yargs(hideBin(process.argv))
-    .option("vscode-version", {
-      type: "string",
-      description: "VS Code のバージョンを指定",
-    })
-    .help("help")
-    .alias("help", "h")
-    .parseSync();
+  if (values.help) {
+    console.log(
+      [
+        "Usage: npm test -- [options]",
+        "",
+        "Options:",
+        "  --vscode-version <version>  VS Code のバージョンを指定",
+        "  -h, --help                  ヘルプを表示",
+      ].join("\n"),
+    );
+    process.exit(0);
+  }
 
   return {
-    vscodeVersion:
-      typeof argv.vscodeVersion === "string" ? argv.vscodeVersion : undefined,
+    vscodeVersion: values["vscode-version"],
   };
 }
 
@@ -55,7 +51,7 @@ async function main() {
     // Passed to --extensionTestsPath
     const extensionTestsPath = path.resolve(__dirname, "./suite/index");
 
-    const { vscodeVersion } = await parseCliArgs();
+    const { vscodeVersion } = parseCliArgs();
     const options: TestOptions = {
       extensionDevelopmentPath,
       extensionTestsPath,
