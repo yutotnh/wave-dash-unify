@@ -81,7 +81,7 @@
     "spellcheck": "cspell ."
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
     "@types/tmp": "^0.2.6",
