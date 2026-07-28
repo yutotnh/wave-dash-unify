@@ -16,3 +16,5 @@ webpack.config.js
 .cspell.json
 .nvmrc
 .claude/**
+AGENTS.md
+CLAUDE.md
