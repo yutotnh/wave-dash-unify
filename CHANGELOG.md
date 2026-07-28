@@ -12,6 +12,19 @@ or each release's GitHub Releases page for those.
 
 ## [Unreleased]
 
+### Added
+
+- Open VSX Registryでの配布に対応しました。VSCodiumなど、Open VSXを利用するエディターにもインストールできるようになりました。([#642](https://github.com/yutotnh/wave-dash-unify/pull/642))
+
+### Changed
+
+- 変換処理を高速化し、大きなファイルを保存する際の遅延を大幅に軽減しました。([#627](https://github.com/yutotnh/wave-dash-unify/pull/627), [#633](https://github.com/yutotnh/wave-dash-unify/pull/633))
+- ステータスバーの文字数カウントの更新をデバウンスし、大きなファイルの編集中の負荷を軽減しました。([#632](https://github.com/yutotnh/wave-dash-unify/pull/632))
+
+### Fixed
+
+- ファイルを連続して素早く保存したときに、拡張機能による変換とVS Codeの保存が競合し、変換結果が反映されないことがある問題を修正しました。([#628](https://github.com/yutotnh/wave-dash-unify/pull/628))
+
 ## [0.4.1] - 2025-05-10
 
 ### Changed
