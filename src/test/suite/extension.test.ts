@@ -1,11 +1,17 @@
 import * as assert from "assert";
 import * as extension from "../../extension";
+import * as eucjp from "../../eucjp";
 import * as fs from "fs";
 import * as tmp from "tmp";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
+import {
+  assertDecodedAsEucjp,
+  openTextDocumentWithEncoding,
+  supportsEncodingApi,
+} from "./vscode-api-compat";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -240,25 +246,112 @@ suite("Extension Test Suite", () => {
   });
 
   /**
-   * 文字列がEUC-JPかを判定する関数をテストする
+   * バイト列がEUC-JPとして構造的に妥当かを判定する関数(isEUCJPBuffer)をテストする
+   *
+   * このテストはVS Codeのバージョンに依存しない(document.encodingを使わず、
+   * バイト列だけを見る)。PR #517で削除された判定用の網羅的なテストベクタを
+   * 復活させたもの。isEUCJPBufferは1.100.0未満での確定判定に今も使われている
+   * (src/eucjp.ts参照)ため、ここで境界条件込みで固定しておく
    */
-  test("detect EUC-JP", async () => {
-    const eucjpDocument = await vscode.workspace.openTextDocument({
-      content: "あ", // 文字列は何でも良い
-      encoding: "eucjp",
+  test("isEUCJPBuffer", () => {
+    const eucjpBuffers = [
+      // 全角チルダ(SS3 + 2バイト)
+      Buffer.from([0x8f, 0xa2, 0xb7]),
+      // 全角チルダ2つ
+      Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xb7]),
+      // CP51932の「①」(NEC特殊文字。SS2/SS3を伴わない2バイト)
+      Buffer.from([0xad, 0xa1]),
+      // CP51932の「髙」(NEC選定IBM拡張文字。SS2/SS3を伴わない2バイト) + 改行(ASCII)
+      Buffer.from([0xfc, 0xe2, 0x0a]),
+      // "ああ"(JIS X 0208の2バイト × 2文字)
+      Buffer.from([0xa4, 0xa2, 0xa4, 0xa2]),
+      // 半角カナ(SS2 + 1バイト)
+      Buffer.from([0x8e, 0xb1]),
+      // ASCIIのみ。EUC-JPとして構造的に妥当なのでtrueになる(意図した挙動。
+      // src/eucjp.tsのisEUCJPBufferのコメント参照。変換対象のバイト列は
+      // いずれもSS3で始まるため、ASCIIのみのファイルが書き換わることはない)
+      Buffer.from([0x31, 0x32, 0x33]),
+      // 空
+      Buffer.from([]),
+      // 【既知の穴】GBKとして解釈すると"～彚稝"になるバイト列。
+      // GBKは全角記号も漢字もすべて0xA1〜0xFEに収まるため、中文のテキストは
+      // EUC-JPとしても構造的に妥当になってしまう。この列は
+      // 0xA1 0xAB(GBKの"～" = U+FF5E)を含むためcontainsConvertTargetCharactersも
+      // 通り、0x8F 0xA2 0xB7(GBKの"彚" + 先頭バイト0xB7の漢字)を含むため
+      // 1.100.0未満では実際に書き換えられてしまう。
+      // これはバイト列からの推定に内在する限界で、0.3系のencoding-japaneseによる
+      // 判定にも同じように存在していた(src/eucjp.tsのisEUCJPBufferのコメント参照)。
+      // 将来ここを厳格化してGBKを弾けるようになったら、この項は
+      // notEucjpBuffers側へ移すことになる
+      Buffer.from([0xa1, 0xab, 0x8f, 0xa2, 0xb7, 0x40]),
+    ];
+
+    eucjpBuffers.forEach((buffer) => {
+      assert.strictEqual(
+        eucjp.isEUCJPBuffer(buffer),
+        true,
+        `buffer: ${buffer.toString("hex")}`,
+      );
     });
+
+    const notEucjpBuffers = [
+      // Shift_JISの"こんにちは"
+      Buffer.from([0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd]),
+      // UTF-8の"よろしく"
+      Buffer.from([
+        0xe3, 0x82, 0x88, 0xe3, 0x82, 0x8d, 0xe3, 0x81, 0x97, 0xe3, 0x81, 0x8f,
+      ]),
+      // SS3の途中で切れている
+      Buffer.from([0x8f, 0xa2]),
+      // 2バイト文字の途中で切れている
+      Buffer.from([0xa4]),
+      // SS2の途中で切れている
+      Buffer.from([0x8e]),
+      // EUC-JPに現れないバイト
+      Buffer.from([0xff]),
+      // SS2の後続バイトが範囲外
+      Buffer.from([0x8e, 0xff]),
+    ];
+
+    notEucjpBuffers.forEach((buffer) => {
+      assert.strictEqual(
+        eucjp.isEUCJPBuffer(buffer),
+        false,
+        `buffer: ${buffer.toString("hex")}`,
+      );
+    });
+  });
+
+  /**
+   * document.encodingによる確定判定(isEUCJPDocument)をテストする
+   *
+   * document.encodingはVS Code 1.100.0で追加されたプロパティのため、
+   * このテストは1.100.0以降でしか意味を持たない。APIが無い環境では
+   * isEUCJPDocumentは常に"unknown"を返す仕様(src/eucjp.ts参照)であり、
+   * それ自体は当然の挙動でテストすべき対象ではないため、APIが無ければ
+   * テストごとスキップする
+   */
+  test("isEUCJPDocument", async function () {
+    if (!supportsEncodingApi()) {
+      this.skip();
+    }
+
+    const eucjpDocument = await openTextDocumentWithEncoding(
+      "あ", // 文字列は何でも良い
+      "eucjp",
+    );
     assert.strictEqual(
-      extension.isEUCJP(eucjpDocument),
+      eucjp.isEUCJPDocument(eucjpDocument),
       true,
       `document: ${eucjpDocument.getText()}`,
     );
 
-    const notEucjpDocument = await vscode.workspace.openTextDocument({
-      content: "い", // 文字列は何でも良い
-      encoding: "utf8",
-    });
+    const notEucjpDocument = await openTextDocumentWithEncoding(
+      "い", // 文字列は何でも良い
+      "utf8",
+    );
     assert.strictEqual(
-      extension.isEUCJP(notEucjpDocument),
+      eucjp.isEUCJPDocument(notEucjpDocument),
       false,
       `document: ${notEucjpDocument.getText()}`,
     );
@@ -599,12 +692,15 @@ suite("Extension Test Suite", () => {
    * 検出できない場合がある(実際に確認済み)。戻り値を直接見ることでその抜け穴を塞ぐ
    *
    * @param contents 保存対象のファイルの内容(変換が起きないことを期待する内容)
+   * @param expectedText contentsをEUC-JPとしてデコードした文字列。前提条件
+   *   (ファイルがEUC-JPと判定されていること)の確認に使う
    * @param fullwidthTildeToWaveDash waveDashUnify.fullwidthTildeToWaveDashの設定値
    * @param numeroSignToNumeroSign waveDashUnify.numeroSignToNumeroSignの設定値
    * @param message アサーション失敗時のメッセージ
    */
   async function assertSaveLeavesFileUnchanged(
     contents: Buffer,
+    expectedText: string,
     fullwidthTildeToWaveDash: boolean,
     numeroSignToNumeroSign: boolean,
     message: string,
@@ -640,9 +736,9 @@ suite("Extension Test Suite", () => {
 
     const document = await vscode.workspace.openTextDocument(tmpFile.name);
     const textEditor = await vscode.window.showTextDocument(document);
-    assert.strictEqual(
-      document.encoding,
-      "eucjp",
+    assertDecodedAsEucjp(
+      document,
+      expectedText,
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
@@ -700,6 +796,7 @@ suite("Extension Test Suite", () => {
 
     await assertSaveLeavesFileUnchanged(
       contents,
+      "ああああ",
       true,
       true,
       "変換対象文字を含まないファイルが保存によって変化した",
@@ -723,6 +820,7 @@ suite("Extension Test Suite", () => {
     ]);
     await assertSaveLeavesFileUnchanged(
       fullwidthTildeOnly,
+      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
       false,
       true,
       "fullwidthTildeToWaveDash: falseなのに、全角チルダのみのファイルが保存によって変化した",
@@ -735,6 +833,7 @@ suite("Extension Test Suite", () => {
     ]);
     await assertSaveLeavesFileUnchanged(
       numeroSignOnly,
+      "ああああ" + String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
       true,
       false,
       "numeroSignToNumeroSign: falseなのに、全角NOのみのファイルが保存によって変化した",
@@ -788,9 +887,9 @@ suite("Extension Test Suite", () => {
     const waveDashDocument = await vscode.workspace.openTextDocument(
       waveDashFile.name,
     );
-    assert.strictEqual(
-      waveDashDocument.encoding,
-      "eucjp",
+    assertDecodedAsEucjp(
+      waveDashDocument,
+      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
     assert.strictEqual(
@@ -816,9 +915,9 @@ suite("Extension Test Suite", () => {
     const numeroSignDocument = await vscode.workspace.openTextDocument(
       numeroSignFile.name,
     );
-    assert.strictEqual(
-      numeroSignDocument.encoding,
-      "eucjp",
+    assertDecodedAsEucjp(
+      numeroSignDocument,
+      "ああああ" + String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
     assert.strictEqual(

@@ -19,6 +19,20 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
+      # Keep @types/vscode pinned to engines.vscode in package.json. vsce refuses
+      # to package the extension when @types/vscode is newer than engines.vscode,
+      # and letting the types drift ahead would also let us use APIs that do not
+      # exist in the oldest supported VS Code. Bump this together with
+      # engines.vscode, never on its own.
+      - dependency-name: "@types/vscode"
+
+      # Mocha runs inside the VS Code extension host, so it is bound by the
+      # Node.js version of the OLDEST supported VS Code (1.66 ships Node 14),
+      # not by .nvmrc. Mocha 11 requires Node 18 or newer, so stay on 10.x until
+      # engines.vscode moves past the VS Code releases that bundle Node 14.
+      - dependency-name: "mocha"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "github-actions"
     directory: "/" # Location of package manifests
     schedule:

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import { createDebouncer, Debouncer } from "./debounce";
+import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
@@ -223,7 +224,9 @@ export function replaceSpecificCharacters(
     return false;
   }
 
-  if (!isEUCJP(document)) {
+  // ここではまだ「確実にEUC-JPではない」ものを落とすだけ。
+  // 確定判定はディスクを読んだ後(convertSavedFile)で行う
+  if (!canBeEUCJP(document)) {
     return false;
   }
 
@@ -259,7 +262,7 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
   // 書き換えてしまう(例: EUC-JPで保存してスケジュールが成立した後、
   // 「エンコード付きで保存」でUTF-8に変換してからタブを閉じる、という手順を
   // 踏むとこのチェックなしにはファイルを破損しうる)
-  if (!isConvertEnabled() || !isEUCJP(document)) {
+  if (!isConvertEnabled() || !canBeEUCJP(document)) {
     return false;
   }
 
@@ -276,6 +279,36 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
     convertedString === content ||
     Buffer.compare(convertedString, content) === 0
   ) {
+    return false;
+  }
+
+  // ファイルを書き換える直前の最終判定。VS Code 1.100.0未満には
+  // TextDocument.encodingが無く、ここまでの判定(canBeEUCJP)は
+  // 「EUC-JPかもしれない」までしか言えていない。読み込んだバイト列を使って
+  // ここで確定させる(1.100.0以降ではバイト列を見ずに判定済みの結果を返す)
+  //
+  // この判定は置換の走査より「後」に置く。置換対象が1つも無ければ
+  // ディスクは書き換わらないので、そもそもエンコーディングを確定させる必要が無い。
+  // 1.100.0未満のisEUCJPBufferはファイル全体を走査するため、順序を逆にすると
+  // 「この拡張機能が一度変換したEUC-JPファイルを再保存する」という日常的な
+  // ケース(テキストには～があるので足切りを通るが、バイト列は既に変換済みで
+  // 置換は発生しない)で毎回この全走査を払うことになる。
+  // 実測では10MBのファイルで22.5ms -> 1.3msになった。
+  // 1.100.0以降はどちらの順序でもO(1)で変わらない。
+  //
+  // 逆に遅くなるケースもある。「EUC-JPとして不正だが変換対象のバイト列は含む」
+  // ファイル(現実的にはShift_JISの日本語ファイル。0x8FはShift_JISの有効な
+  // リードバイトのため)では、順序が逆なら不正なバイトを見つけた時点で
+  // 即座に弾けたところを、置換用Bufferの確保とコピーの分だけ余計に払う。
+  // 10MBで1.6〜2.4msの増加で、同じ関数が手前で払っているfs.readFileSyncより
+  // 小さいため許容している
+  //
+  // 安全性は順序に依存しない。replaceSpecificCharactersInBufferは
+  // 引数のBufferを読むだけで書き換えず(返すのは引数そのものか新しいBufferの
+  // どちらか)副作用が無いため、書き込みは必ずこの判定を通過した後にしか起きない。
+  // この不変条件はsrc/test/suite/eucjp-legacy-path.test.tsで、
+  // 実際にディスクの中身を確認する形で固定してある
+  if (!isEUCJPConfirmed(document, content)) {
     return false;
   }
 
@@ -306,7 +339,30 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
     return;
   }
 
-  if (!isConvertEnabled() || !isEUCJP(document)) {
+  if (!isConvertEnabled() || !canBeEUCJP(document)) {
+    return;
+  }
+
+  // VS Code 1.100.0未満ではcanBeEUCJPが常にtrueになるため、この足切りが無いと
+  // 保存したすべてのファイルがpendingConversionsに積まれてしまう。すると
+  // クローズやdeactivateからのflushPendingConversion -> convertSavedFileの経路が
+  // 変換対象文字の有無を確認しないまま毎回ディスクを読むことになり、
+  // #633で削った読み込みが古いVS Codeでだけ復活する。
+  // containsConvertTargetCharactersは保存直後のテキストを見るため、
+  // ここで対象文字が無ければ「この保存で変換すべきものは無い」と言い切れる。
+  //
+  // ただしこの足切り自体もコストを持つ。1.100.0以降はisEUCJPDocumentが
+  // O(1)でEUC-JP以外を落とすのでここには来ないが、1.100.0未満では
+  // エンコーディングを問わず保存されたすべてのファイルで
+  // containsConvertTargetCharacters(= document.getText()による全文のUTF-16コピー
+  // と走査)が走る。つまり#627 / #633で削った全文走査を完全には消せておらず、
+  // 古いVS Codeでは大きなファイルの保存時にこの分の遅延が残る。
+  // ディスクを読む前に使える判定材料が他に無いため、
+  // 「毎回ディスクを読む」よりは軽いこちらを選んでいる
+  if (
+    needsBytesToDecideEUCJP(document) &&
+    !containsConvertTargetCharacters(document)
+  ) {
     return;
   }
 
@@ -574,20 +630,6 @@ export function isConvertEnabled(): boolean {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
 
   return config.get("enableConvert") as boolean;
-}
-
-/**
- * ファイルの文字コードがEUC-JPかを判定する
- *
- * VS Code 1.100.0以降ではTextDocument.encodingで判定する。
- * ASCIIのみのファイルもEUC-JPと判定される
- *
- * @param str 判定する文字列またはTextDocument
- * @returns `true`: EUC-JP, `false`: EUC-JP以外
- */
-export function isEUCJP(str: vscode.TextDocument): boolean {
-  // VS Code 1.100.0以降: TextDocument.encodingが使える
-  return str.encoding === "eucjp";
 }
 
 /**

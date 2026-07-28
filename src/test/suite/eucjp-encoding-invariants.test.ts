@@ -1,6 +1,10 @@
 import * as assert from "assert";
-import * as vscode from "vscode";
 import * as extension from "../../extension";
+import {
+  decodeBytes,
+  encodeText,
+  supportsEncodingApi,
+} from "./vscode-api-compat";
 
 /**
  * EUC-JPのコーデックに関する前提を固定化するテスト
@@ -10,12 +14,24 @@ import * as extension from "../../extension";
  * この前提はVS Code側のデコーダの挙動に依存するため、将来VS Codeの
  * コーデック実装が変わった場合に気付けるよう、ここでテストとして固定する。
  *
- * 各テストは`vscode.workspace.decode`/`encode`に`encoding: "eucjp"`を
- * 明示して使う。未対応のエンコーディング名を渡すと既定のエンコーディング
- * (UTF-8)にフォールバックしてしまうため、UTF-8では成立しない
- * バイト列との厳密比較で「本当にEUC-JPとして処理されたか」も併せて検証する
+ * 各テストは`vscode.workspace.decode`/`encode`(いずれも1.100.0で追加された
+ * API)に`encoding: "eucjp"`を明示して使う。未対応のエンコーディング名を
+ * 渡すと既定のエンコーディング(UTF-8)にフォールバックしてしまうため、
+ * UTF-8では成立しないバイト列との厳密比較で「本当にEUC-JPとして処理されたか」
+ * も併せて検証する
+ *
+ * このスイート自体が1.100.0以降のAPIそのものの不変条件を固定するものなので、
+ * package.jsonのengines.vscode(1.66.0)を満たすだけでAPIが無い環境では
+ * 検証しようがない。そのためsuiteSetupでAPIの有無を確認し、無ければ
+ * スイート全体をスキップする
  */
 suite("EUC-JP encoding invariants", () => {
+  suiteSetup(function () {
+    if (!supportsEncodingApi()) {
+      this.skip();
+    }
+  });
+
   // EUC-JPにおける波ダッシュのバイト列
   const WAVE_DASH_BYTES = Uint8Array.from([0xa1, 0xc1]);
   // EUC-JPにおける全角チルダのバイト列(3バイトのSS3領域)
@@ -27,9 +43,9 @@ suite("EUC-JP encoding invariants", () => {
   );
 
   const decodeEucjp = (bytes: Uint8Array): Thenable<string> =>
-    vscode.workspace.decode(bytes, { encoding: "eucjp" });
+    decodeBytes(bytes, "eucjp");
   const encodeEucjp = (text: string): Thenable<Uint8Array> =>
-    vscode.workspace.encode(text, { encoding: "eucjp" });
+    encodeText(text, "eucjp");
 
   test("波ダッシュのバイト列(0xA1 0xC1)は全角チルダ(U+FF5E)にデコードされる", async () => {
     const decoded = await decodeEucjp(WAVE_DASH_BYTES);
