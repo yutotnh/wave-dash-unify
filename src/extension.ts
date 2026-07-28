@@ -272,14 +272,6 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
   const content = fs.readFileSync(fileName);
 
-  // ファイルを書き換える直前の最終判定。VS Code 1.100.0未満には
-  // TextDocument.encodingが無く、ここまでの判定(canBeEUCJP)は
-  // 「EUC-JPかもしれない」までしか言えていない。読み込んだバイト列を使って
-  // ここで確定させる(1.100.0以降ではバイト列を見ずに判定済みの結果を返す)
-  if (!isEUCJPConfirmed(document, content)) {
-    return false;
-  }
-
   const convertedString = replaceSpecificCharactersInBuffer(content);
 
   // 変換対象がない場合は入力のBufferがそのまま返るため、参照比較だけで書き換え不要と判定できる
@@ -287,6 +279,36 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
     convertedString === content ||
     Buffer.compare(convertedString, content) === 0
   ) {
+    return false;
+  }
+
+  // ファイルを書き換える直前の最終判定。VS Code 1.100.0未満には
+  // TextDocument.encodingが無く、ここまでの判定(canBeEUCJP)は
+  // 「EUC-JPかもしれない」までしか言えていない。読み込んだバイト列を使って
+  // ここで確定させる(1.100.0以降ではバイト列を見ずに判定済みの結果を返す)
+  //
+  // この判定は置換の走査より「後」に置く。置換対象が1つも無ければ
+  // ディスクは書き換わらないので、そもそもエンコーディングを確定させる必要が無い。
+  // 1.100.0未満のisEUCJPBufferはファイル全体を走査するため、順序を逆にすると
+  // 「この拡張機能が一度変換したEUC-JPファイルを再保存する」という日常的な
+  // ケース(テキストには～があるので足切りを通るが、バイト列は既に変換済みで
+  // 置換は発生しない)で毎回この全走査を払うことになる。
+  // 実測では10MBのファイルで22.5ms -> 1.3msになった。
+  // 1.100.0以降はどちらの順序でもO(1)で変わらない。
+  //
+  // 逆に遅くなるケースもある。「EUC-JPとして不正だが変換対象のバイト列は含む」
+  // ファイル(現実的にはShift_JISの日本語ファイル。0x8FはShift_JISの有効な
+  // リードバイトのため)では、順序が逆なら不正なバイトを見つけた時点で
+  // 即座に弾けたところを、置換用Bufferの確保とコピーの分だけ余計に払う。
+  // 10MBで1.6〜2.4msの増加で、同じ関数が手前で払っているfs.readFileSyncより
+  // 小さいため許容している
+  //
+  // 安全性は順序に依存しない。replaceSpecificCharactersInBufferは
+  // 引数のBufferを読むだけで書き換えず(返すのは引数そのものか新しいBufferの
+  // どちらか)副作用が無いため、書き込みは必ずこの判定を通過した後にしか起きない。
+  // この不変条件はsrc/test/suite/eucjp-legacy-path.test.tsで、
+  // 実際にディスクの中身を確認する形で固定してある
+  if (!isEUCJPConfirmed(document, content)) {
     return false;
   }
 

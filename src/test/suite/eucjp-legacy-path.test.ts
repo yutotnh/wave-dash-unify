@@ -1,5 +1,8 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as tmp from "tmp";
 import * as vscode from "vscode";
+import * as extension from "../../extension";
 import {
   canBeEUCJP,
   isEUCJPBuffer,
@@ -84,6 +87,117 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
       false,
       "UTF-8のバイト列がisEUCJPConfirmed(legacy path)でEUC-JPと判定された",
     );
+  });
+
+  /**
+   * 1.100.0未満の経路で、ディスクへの書き込みが確定判定に守られていることを固定する
+   *
+   * convertSavedFileは「置換の走査 -> 置換対象があれば確定判定 -> 書き込み」の順で
+   * 動く(置換対象が無ければディスクは書き換わらないので、エンコーディングを
+   * 確定させる必要が無い)。この順序が安全なのは、変換対象のバイト列を含んでいても
+   * EUC-JPとして妥当でなければisEUCJPConfirmedが書き込みを止めるため
+   *
+   * このテストは`isEUCJPConfirmed`を直接呼ばずに、公開APIの
+   * `replaceSpecificCharacters`から実際の変換経路を通してディスクの中身を確認する。
+   * 判定関数だけを単体で呼ぶテストでは、convertSavedFileから確定判定が
+   * 丸ごと消えても緑のままになり、この不変条件を守れない
+   *
+   * `canBeEUCJP`は`"encoding" in document`しか見ないため、`.encoding`を持たない
+   * ダミーのドキュメントを渡せば、テストを実行するVS Codeのバージョンに関係なく
+   * 1.100.0未満の経路を確実に踏める
+   */
+  suite("ディスクへの書き込みが確定判定に守られていること", () => {
+    /**
+     * 変換対象文字を含むテキストを返す、`.encoding`を持たないダミーのドキュメント
+     *
+     * convertSavedFileまでの経路が参照するのはfileNameとgetText()だけ
+     *
+     * @param fileName 変換対象のファイルのパス
+     * @returns ダミーのTextDocument
+     */
+    function documentForFile(fileName: string): vscode.TextDocument {
+      return {
+        fileName,
+        getText: () =>
+          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      } as unknown as vscode.TextDocument;
+    }
+
+    suiteSetup(async () => {
+      const config = vscode.workspace.getConfiguration("waveDashUnify");
+      await config.update(
+        "enableConvert",
+        true,
+        vscode.ConfigurationTarget.Global,
+      );
+      await config.update(
+        "fullwidthTildeToWaveDash",
+        true,
+        vscode.ConfigurationTarget.Global,
+      );
+      await config.update(
+        "numeroSignToNumeroSign",
+        true,
+        vscode.ConfigurationTarget.Global,
+      );
+    });
+
+    suiteTeardown(async () => {
+      const config = vscode.workspace.getConfiguration("waveDashUnify");
+      await config.update(
+        "enableConvert",
+        undefined,
+        vscode.ConfigurationTarget.Global,
+      );
+      await config.update(
+        "fullwidthTildeToWaveDash",
+        undefined,
+        vscode.ConfigurationTarget.Global,
+      );
+      await config.update(
+        "numeroSignToNumeroSign",
+        undefined,
+        vscode.ConfigurationTarget.Global,
+      );
+    });
+
+    test("変換対象のバイト列を含んでいてもEUC-JPでなければ書き換えない", () => {
+      // 全角チルダのバイト列(0x8F 0xA2 0xB7)を含むが、
+      // 直後の0x80がEUC-JPのどの並びにも当てはまらないため全体としては不正
+      const contents = Buffer.from([0x8f, 0xa2, 0xb7, 0x80]);
+      const file = tmp.fileSync();
+      fs.writeFileSync(file.name, contents);
+
+      assert.strictEqual(
+        extension.replaceSpecificCharacters(documentForFile(file.name)),
+        false,
+        "EUC-JPではないファイルに対して書き換えたと報告された",
+      );
+      assert.deepStrictEqual(
+        Array.from(fs.readFileSync(file.name)),
+        Array.from(contents),
+        "変換対象のバイト列を含む非EUC-JPのファイルが書き換えられた",
+      );
+    });
+
+    test("EUC-JPであれば書き換える(ガードが常にfalseになっていないこと)", () => {
+      // "A" + 全角チルダ + "B"。EUC-JPとして妥当
+      const contents = Buffer.from([0x41, 0x8f, 0xa2, 0xb7, 0x42]);
+      const file = tmp.fileSync();
+      fs.writeFileSync(file.name, contents);
+
+      assert.strictEqual(
+        extension.replaceSpecificCharacters(documentForFile(file.name)),
+        true,
+        "EUC-JPのファイルが書き換えられなかった",
+      );
+      assert.deepStrictEqual(
+        Array.from(fs.readFileSync(file.name)),
+        // 全角チルダ(0x8F 0xA2 0xB7)が波ダッシュ(0xA1 0xC1)に置き換わる
+        [0x41, 0xa1, 0xc1, 0x42],
+        "変換結果が期待値と一致しなかった",
+      );
+    });
   });
 
   test("EUC-JPのファイルはEUC-JPと判定される", () => {
