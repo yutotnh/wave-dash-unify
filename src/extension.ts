@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import { createDebouncer, Debouncer } from "./debounce";
+import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
@@ -223,7 +224,9 @@ export function replaceSpecificCharacters(
     return false;
   }
 
-  if (!isEUCJP(document)) {
+  // ここではまだ「確実にEUC-JPではない」ものを落とすだけ。
+  // 確定判定はディスクを読んだ後(convertSavedFile)で行う
+  if (!canBeEUCJP(document)) {
     return false;
   }
 
@@ -259,7 +262,7 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
   // 書き換えてしまう(例: EUC-JPで保存してスケジュールが成立した後、
   // 「エンコード付きで保存」でUTF-8に変換してからタブを閉じる、という手順を
   // 踏むとこのチェックなしにはファイルを破損しうる)
-  if (!isConvertEnabled() || !isEUCJP(document)) {
+  if (!isConvertEnabled() || !canBeEUCJP(document)) {
     return false;
   }
 
@@ -268,6 +271,14 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
   // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
   // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
   const content = fs.readFileSync(fileName);
+
+  // ファイルを書き換える直前の最終判定。VS Code 1.100.0未満には
+  // TextDocument.encodingが無く、ここまでの判定(canBeEUCJP)は
+  // 「EUC-JPかもしれない」までしか言えていない。読み込んだバイト列を使って
+  // ここで確定させる(1.100.0以降ではバイト列を見ずに判定済みの結果を返す)
+  if (!isEUCJPConfirmed(document, content)) {
+    return false;
+  }
 
   const convertedString = replaceSpecificCharactersInBuffer(content);
 
@@ -306,7 +317,21 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
     return;
   }
 
-  if (!isConvertEnabled() || !isEUCJP(document)) {
+  if (!isConvertEnabled() || !canBeEUCJP(document)) {
+    return;
+  }
+
+  // VS Code 1.100.0未満ではcanBeEUCJPが常にtrueになるため、この足切りが無いと
+  // 保存したすべてのファイルがpendingConversionsに積まれてしまう。すると
+  // クローズやdeactivateからのflushPendingConversion -> convertSavedFileの経路が
+  // 変換対象文字の有無を確認しないまま毎回ディスクを読むことになり、
+  // #633で削った読み込みが古いVS Codeでだけ復活する。
+  // containsConvertTargetCharactersは保存直後のテキストを見るため、
+  // ここで対象文字が無ければ「この保存で変換すべきものは無い」と言い切れる
+  if (
+    needsBytesToDecideEUCJP(document) &&
+    !containsConvertTargetCharacters(document)
+  ) {
     return;
   }
 
@@ -574,20 +599,6 @@ export function isConvertEnabled(): boolean {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
 
   return config.get("enableConvert") as boolean;
-}
-
-/**
- * ファイルの文字コードがEUC-JPかを判定する
- *
- * VS Code 1.100.0以降ではTextDocument.encodingで判定する。
- * ASCIIのみのファイルもEUC-JPと判定される
- *
- * @param str 判定する文字列またはTextDocument
- * @returns `true`: EUC-JP, `false`: EUC-JP以外
- */
-export function isEUCJP(str: vscode.TextDocument): boolean {
-  // VS Code 1.100.0以降: TextDocument.encodingが使える
-  return str.encoding === "eucjp";
 }
 
 /**

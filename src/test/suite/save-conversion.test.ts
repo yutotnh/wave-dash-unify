@@ -3,6 +3,7 @@ import * as extension from "../../extension";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as vscode from "vscode";
+import { assertDecodedAsEucjp } from "./vscode-api-compat";
 
 /**
  * issue #13 の再現テスト
@@ -67,9 +68,9 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
     const textEditor = await vscode.window.showTextDocument(document);
 
     // テストの前提: ファイルがEUC-JPと判定されていること
-    assert.strictEqual(
-      document.encoding,
-      "eucjp",
+    assertDecodedAsEucjp(
+      document,
+      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
@@ -248,9 +249,9 @@ suite("保存後変換のデバウンス: 待機中に中断された場合", ()
     const textEditor = await vscode.window.showTextDocument(document);
 
     // テストの前提: ファイルがEUC-JPと判定されていること
-    assert.strictEqual(
-      document.encoding,
-      "eucjp",
+    assertDecodedAsEucjp(
+      document,
+      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
@@ -395,9 +396,9 @@ suite("issue #13 (C-1): 非アクティブなエディタでの再発防止", ()
     const textEditor = await vscode.window.showTextDocument(document);
 
     // テストの前提: ファイルがEUC-JPと判定されていること
-    assert.strictEqual(
-      document.encoding,
-      "eucjp",
+    assertDecodedAsEucjp(
+      document,
+      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
