@@ -95,6 +95,23 @@ function isHalfwidthKatakanaByte(byte: number): boolean {
  * この差はSS3を含む珍しいファイルでしか効かず、変換対象である
  * 0x8F 0xA2 0xB7 / 0x8F 0xA2 0xF1(いずれも2区)の判定は両者で一致する
  *
+ * 既知の限界(1.100.0未満でのみ影響する残余リスク):
+ * 構造チェックである以上、EUC-JPと同じバイト構造を持つ他のマルチバイト
+ * エンコーディングと区別できない。特にGBKやBig5の中文テキストは、全角記号も
+ * 漢字もすべて0xA1〜0xFEに収まるため、句読点を含む普通の文章でも
+ * この関数は`true`を返す。そのファイルがGBKとしてU+FF5EやU+2116にデコードされる
+ * バイト列(containsConvertTargetCharactersを通る条件)を含み、かつ
+ * 0x8F 0xA2 0xB7 / 0x8F 0xA2 0xF1に一致するバイト列も含んでいた場合、
+ * 変換対象ではないファイルを書き換えてしまう。
+ * 逆方向の誤判定(正当なEUC-JPを取りこぼす)は無いことは確認済みで、
+ * EUC-JPでラウンドトリップできるBMPの全文字がこの関数を通る。
+ *
+ * この穴は0.3系のencoding-japaneseによる判定にも同じように存在していたため
+ * 新たに増えたリスクではないが、1.100.0以降ではこの関数自体を通らないため、
+ * 「古いVS Codeでのみ起こりうる挙動の差」であることに注意
+ * (この既知の穴はsrc/test/suite/extension.test.tsのisEUCJPBufferの
+ *  テストベクタで明示的に固定してある)
+ *
  * @param buffer 判定するバイト列
  * @returns `true`: EUC-JPとして妥当, `false`: EUC-JPとして解釈できないバイト列を含む
  */
@@ -166,14 +183,17 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
  * @returns `true`: EUC-JP, `false`: EUC-JP以外, `"unknown"`: バイト列を見ないと判定できない
  */
 export function isEUCJPDocument(document: vscode.TextDocument): EucjpVerdict {
-  const encoding = (document as DocumentWithEncoding).encoding;
-
-  // VS Code 1.100.0未満にはこのプロパティが無い
-  if (typeof encoding !== "string") {
+  // プロパティの有無で分岐する。値がstringかどうかでは分岐しないこと。
+  // 「APIが無い(1.100.0未満)」と「APIはあるが値が取れなかった」を
+  // 区別しないと、後者でバイト列の推定(isEUCJPBuffer)にフォールバックして
+  // しまう。推定は他のマルチバイトエンコーディングを誤判定しうる安全でない側
+  // なので、APIがある環境では値が取れなくても推定に落とさず、
+  // 「EUC-JPではない」として変換しない側に倒す
+  if (!("encoding" in document)) {
     return "unknown";
   }
 
-  return encoding === EUCJP_ENCODING_ID;
+  return (document as DocumentWithEncoding).encoding === EUCJP_ENCODING_ID;
 }
 
 /**

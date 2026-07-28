@@ -259,9 +259,9 @@ suite("Extension Test Suite", () => {
       Buffer.from([0x8f, 0xa2, 0xb7]),
       // 全角チルダ2つ
       Buffer.from([0x8f, 0xa2, 0xb7, 0x8f, 0xa2, 0xb7]),
-      // CP51932の「①」(JIS X 0208の2バイト)
+      // CP51932の「①」(NEC特殊文字。SS2/SS3を伴わない2バイト)
       Buffer.from([0xad, 0xa1]),
-      // CP51932の「髙」(JIS X 0208の2バイト) + 改行(ASCII)
+      // CP51932の「髙」(NEC選定IBM拡張文字。SS2/SS3を伴わない2バイト) + 改行(ASCII)
       Buffer.from([0xfc, 0xe2, 0x0a]),
       // "ああ"(JIS X 0208の2バイト × 2文字)
       Buffer.from([0xa4, 0xa2, 0xa4, 0xa2]),
@@ -273,6 +273,17 @@ suite("Extension Test Suite", () => {
       Buffer.from([0x31, 0x32, 0x33]),
       // 空
       Buffer.from([]),
+      // 【既知の穴】GBKとして解釈すると"～彚稝"になるバイト列。
+      // GBKは全角記号も漢字もすべて0xA1〜0xFEに収まるため、中文のテキストは
+      // EUC-JPとしても構造的に妥当になってしまう。この列は
+      // 0xA1 0xAB(GBKの"～" = U+FF5E)を含むためcontainsConvertTargetCharactersも
+      // 通り、0x8F 0xA2 0xB7(GBKの"彚" + 先頭バイト0xB7の漢字)を含むため
+      // 1.100.0未満では実際に書き換えられてしまう。
+      // これはバイト列からの推定に内在する限界で、0.3系のencoding-japaneseによる
+      // 判定にも同じように存在していた(src/eucjp.tsのisEUCJPBufferのコメント参照)。
+      // 将来ここを厳格化してGBKを弾けるようになったら、この項は
+      // notEucjpBuffers側へ移すことになる
+      Buffer.from([0xa1, 0xab, 0x8f, 0xa2, 0xb7, 0x40]),
     ];
 
     eucjpBuffers.forEach((buffer) => {

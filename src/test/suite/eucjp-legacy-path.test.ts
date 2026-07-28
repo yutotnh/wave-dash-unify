@@ -1,6 +1,12 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
-import { isEUCJPBuffer, isEUCJPConfirmed } from "../../eucjp";
+import {
+  canBeEUCJP,
+  isEUCJPBuffer,
+  isEUCJPConfirmed,
+  isEUCJPDocument,
+  needsBytesToDecideEUCJP,
+} from "../../eucjp";
 
 /**
  * VS Code 1.100.0未満での経路(バイト列判定へのフォールバック)を固定するテスト
@@ -30,6 +36,37 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
   function documentWithoutEncoding(): vscode.TextDocument {
     return {} as vscode.TextDocument;
   }
+
+  /**
+   * 過剰近似の契約を固定する
+   *
+   * canBeEUCJPとneedsBytesToDecideEUCJPは「ディスクを読む前の足切り」であって、
+   * ファイルを書き換えてよいかの判断には使えない。1.100.0未満では
+   * canBeEUCJPが常にtrueを返す(=何も落とせない)という性質は、
+   * extension.ts側の設計(convertSavedFileで必ずisEUCJPConfirmedを通す、
+   * scheduleSaveConversionでcontainsConvertTargetCharactersによる足切りを足す)が
+   * 前提にしているもの。誤ってcanBeEUCJPを確定判定として扱う変更が入ったときに
+   * 気付けるよう、ここで契約として固定しておく
+   */
+  test("1.100.0未満相当のドキュメントでは判定が過剰近似になる", () => {
+    const document = documentWithoutEncoding();
+
+    assert.strictEqual(
+      isEUCJPDocument(document),
+      "unknown",
+      "document.encodingが無いのに確定判定が返った",
+    );
+    assert.strictEqual(
+      needsBytesToDecideEUCJP(document),
+      true,
+      "確定判定にバイト列が必要だと判定されなかった",
+    );
+    assert.strictEqual(
+      canBeEUCJP(document),
+      true,
+      "判定材料が無いのにEUC-JPの可能性が否定された(過剰近似になっていない)",
+    );
+  });
 
   test("UTF-8の日本語ファイルの内容はEUC-JPと判定されない", () => {
     // UTF-8の"よろしく"

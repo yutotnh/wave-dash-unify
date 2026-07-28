@@ -327,7 +327,16 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
   // 変換対象文字の有無を確認しないまま毎回ディスクを読むことになり、
   // #633で削った読み込みが古いVS Codeでだけ復活する。
   // containsConvertTargetCharactersは保存直後のテキストを見るため、
-  // ここで対象文字が無ければ「この保存で変換すべきものは無い」と言い切れる
+  // ここで対象文字が無ければ「この保存で変換すべきものは無い」と言い切れる。
+  //
+  // ただしこの足切り自体もコストを持つ。1.100.0以降はisEUCJPDocumentが
+  // O(1)でEUC-JP以外を落とすのでここには来ないが、1.100.0未満では
+  // エンコーディングを問わず保存されたすべてのファイルで
+  // containsConvertTargetCharacters(= document.getText()による全文のUTF-16コピー
+  // と走査)が走る。つまり#627 / #633で削った全文走査を完全には消せておらず、
+  // 古いVS Codeでは大きなファイルの保存時にこの分の遅延が残る。
+  // ディスクを読む前に使える判定材料が他に無いため、
+  // 「毎回ディスクを読む」よりは軽いこちらを選んでいる
   if (
     needsBytesToDecideEUCJP(document) &&
     !containsConvertTargetCharacters(document)
