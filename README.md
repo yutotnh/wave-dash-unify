@@ -22,7 +22,7 @@ VS Code ではファイルの文字コードに EUC-JP を指定した状態で`
 
 ## Installation
 
-[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=yutotnh.wave-dash-unify) または [Open VSX Registry](https://open-vsx.org/extension/yutotnh/wave-dash-unify) からインストールできます。
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=yutotnh.wave-dash-unify) からインストールできます。
 
 VS Code の拡張機能ビューで `wave-dash-unify` を検索してインストールすることもできます。
 
