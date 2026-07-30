@@ -54,21 +54,23 @@ export type EucjpVerdict = true | false | "unknown";
  * JIS X 0208(2バイト)とJIS X 0212(SS3 + 2バイト)のどちらの後続バイトも
  * この範囲に収まる
  *
- * @param byte 判定するバイト
- * @returns `true`: 0xA1〜0xFEの範囲内, `false`: 範囲外
+ * @param byte 判定するバイト。呼び出し側でバッファ末尾チェックをしているため
+ *   実際には`undefined`にはならないが、`buffer[i]`の型に合わせている
+ * @returns `true`: 0xA1〜0xFEの範囲内, `false`: 範囲外(`undefined`を含む)
  */
-function isDoubleByteRange(byte: number): boolean {
-  return byte >= 0xa1 && byte <= 0xfe;
+function isDoubleByteRange(byte: number | undefined): boolean {
+  return byte !== undefined && byte >= 0xa1 && byte <= 0xfe;
 }
 
 /**
  * SS2に続く半角カナのバイトかを判定する
  *
- * @param byte 判定するバイト
- * @returns `true`: 0xA1〜0xDFの範囲内, `false`: 範囲外
+ * @param byte 判定するバイト。呼び出し側でバッファ末尾チェックをしているため
+ *   実際には`undefined`にはならないが、`buffer[i]`の型に合わせている
+ * @returns `true`: 0xA1〜0xDFの範囲内, `false`: 範囲外(`undefined`を含む)
  */
-function isHalfwidthKatakanaByte(byte: number): boolean {
-  return byte >= 0xa1 && byte <= 0xdf;
+function isHalfwidthKatakanaByte(byte: number | undefined): boolean {
+  return byte !== undefined && byte >= 0xa1 && byte <= 0xdf;
 }
 
 /**
@@ -120,6 +122,12 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
 
   while (position < buffer.length) {
     const byte = buffer[position];
+
+    // while条件(position < buffer.length)により実際には到達しないが、
+    // noUncheckedIndexedAccessを満たすために必要
+    if (byte === undefined) {
+      return false;
+    }
 
     // ASCII(制御文字を含む)
     if (byte <= 0x7f) {
