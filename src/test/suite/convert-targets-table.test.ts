@@ -73,6 +73,9 @@ suite("Convert Targets Table Test Suite", () => {
         `変換前のバイト列がSS3で始まっていない: ${target.configKey}`,
       );
       assert.ok(
+        // CONVERT_TARGETSはas constで定義されているため現在のエントリでは
+        // 常にtrueと静的に分かるが、将来エントリが増えたときの回帰防止として残す
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         target.to.length <= target.from.length,
         `変換後のバイト列が変換前より長い: ${target.configKey}`,
       );

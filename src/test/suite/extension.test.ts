@@ -127,10 +127,6 @@ suite("Extension Test Suite", () => {
       // ファイルを開いて保存する
       const document = await vscode.workspace.openTextDocument(tmpFile.name);
       const textEditor = await vscode.window.showTextDocument(document);
-      if (!textEditor) {
-        // ファイルを開くのに失敗したらテストを失敗させる
-        assert.fail();
-      }
 
       await textEditor.edit((editBuilder: vscode.TextEditorEdit) => {
         editBuilder.insert(new vscode.Position(0, 0), insert);
@@ -152,7 +148,7 @@ suite("Extension Test Suite", () => {
         actual.toString("hex"),
         expect.toString("hex"),
         `
-        enableConvert: ${enableConvert}
+        enableConvert: ${enableConvert.toString()}
         before: ${contents.toString("hex")}
         insert: ${insert}
         after :  ${actual.toString("hex")}`,
@@ -1042,7 +1038,7 @@ suite("Extension Test Suite", () => {
 
     extension.updateStatusBarItem(statusBarItem);
 
-    const expectedText = `$(pass-filled) ～: ${waveDashCount + fullwidthTildeCount}, №: ${numeroSignCount}`;
+    const expectedText = `$(pass-filled) ～: ${(waveDashCount + fullwidthTildeCount).toString()}, №: ${numeroSignCount.toString()}`;
     // ステータスバーに表示される文字列が正しいことを確認する
     assert.strictEqual(
       statusBarItem.text,
@@ -1067,7 +1063,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
     extension.updateStatusBarItem(statusBarItem);
-    const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashCount + fullwidthTildeCount})`;
+    const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount.toString()}) ～(${(waveDashCount + fullwidthTildeCount).toString()})`;
     assert.strictEqual(
       statusBarItem.text,
       expectedTextWithFormat,
