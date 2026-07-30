@@ -782,11 +782,12 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   const activeEditor = vscode.window.activeTextEditor;
 
   const config = vscode.workspace.getConfiguration("waveDashUnify");
-  // package.jsonのwaveDashUnify.statusBarFormatのdefaultと同じ値
-  const format = config.get(
-    "statusBarFormat",
-    "${statusIcon} ～: ${waveDashAndFullwidthTildeCount}, №: ${numeroSignCount}",
-  );
+  const format = config.get<string>("statusBarFormat");
+  // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
+  // 型のためだけの分岐で、ここに到達したらステータスバーの更新自体を諦める
+  if (format === undefined) {
+    return;
+  }
 
   // アクティブなテキストエディタがファイルではない場合は
   // 全角チルダと波ダッシュの個数を表示しても意味がないので、
