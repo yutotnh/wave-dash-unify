@@ -98,7 +98,7 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
 
     // issue #13 の再現状況をログに残す
     console.log(
-      `[issue-13] ${ATTEMPTS}回の連続保存中、${failedAttempts.length}回 save() が false を返した` +
+      `[issue-13] ${ATTEMPTS.toString()}回の連続保存中、${failedAttempts.length.toString()}回 save() が false を返した` +
         (failedAttempts.length > 0
           ? ` (失敗した試行: ${failedAttempts
               .map(({ attempt }) => attempt)
@@ -110,7 +110,7 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
     assert.strictEqual(
       failedAttempts.length,
       0,
-      `連続保存によりsave()がfalseを返した(issue #13が再現した): ${failedAttempts.length}/${ATTEMPTS}回失敗`,
+      `連続保存によりsave()がfalseを返した(issue #13が再現した): ${failedAttempts.length.toString()}/${ATTEMPTS.toString()}回失敗`,
     );
 
     // 保存が落ち着いた後、デバウンスされていた変換が実行されて
