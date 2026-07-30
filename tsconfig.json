@@ -5,10 +5,16 @@
     "lib": ["ES2020"],
     "sourceMap": true,
     "rootDir": "src",
-    "strict": true /* enable all strict type-checking options */
+    "strict": true, /* enable all strict type-checking options */
     /* Additional Checks */
     // "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
     // "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
     // "noUnusedParameters": true,  /* Report errors on unused parameters. */
+    "noImplicitOverride": true, /* Ensure overriding members in derived classes are marked with an override modifier. */
+    "noUnusedLocals": true, /* Report errors on unused locals. */
+    "noPropertyAccessFromIndexSignature": true, /* Require undeclared properties from index signatures to use element accesses. */
+    "useUnknownInCatchVariables": true, /* Type catch clause variables as unknown instead of any. */
+    "forceConsistentCasingInFileNames": true, /* Ensure that casing is correct in imports. */
+    "exactOptionalPropertyTypes": true /* Interpret optional property types as written, rather than adding undefined. */
   }
 }
