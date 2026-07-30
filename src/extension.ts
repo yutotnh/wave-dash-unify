@@ -187,6 +187,10 @@ export function activate(context: vscode.ExtensionContext) {
 
             const selectedItem = selection[0];
 
+            if (selectedItem === undefined) {
+              return;
+            }
+
             if (selectedItem.label === "Enable convert") {
               vscode.commands.executeCommand("waveDashUnify.enableConvert");
             } else if (selectedItem.label === "Disable convert") {

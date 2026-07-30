@@ -121,6 +121,12 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
   while (position < buffer.length) {
     const byte = buffer[position];
 
+    // while条件(position < buffer.length)により実際には到達しないが、
+    // noUncheckedIndexedAccessを満たすために必要
+    if (byte === undefined) {
+      return false;
+    }
+
     // ASCII(制御文字を含む)
     if (byte <= 0x7f) {
       position += 1;
@@ -129,10 +135,8 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
 
     // 半角カナ: SS2 + 1バイト
     if (byte === SS2) {
-      if (
-        position + 1 >= buffer.length ||
-        !isHalfwidthKatakanaByte(buffer[position + 1])
-      ) {
+      const next = buffer[position + 1];
+      if (next === undefined || !isHalfwidthKatakanaByte(next)) {
         return false;
       }
 
@@ -142,10 +146,13 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
 
     // 補助漢字: SS3 + 2バイト
     if (byte === SS3) {
+      const next1 = buffer[position + 1];
+      const next2 = buffer[position + 2];
       if (
-        position + 2 >= buffer.length ||
-        !isDoubleByteRange(buffer[position + 1]) ||
-        !isDoubleByteRange(buffer[position + 2])
+        next1 === undefined ||
+        next2 === undefined ||
+        !isDoubleByteRange(next1) ||
+        !isDoubleByteRange(next2)
       ) {
         return false;
       }
@@ -156,10 +163,8 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
 
     // JIS X 0208: 2バイト
     if (isDoubleByteRange(byte)) {
-      if (
-        position + 1 >= buffer.length ||
-        !isDoubleByteRange(buffer[position + 1])
-      ) {
+      const next = buffer[position + 1];
+      if (next === undefined || !isDoubleByteRange(next)) {
         return false;
       }
 
