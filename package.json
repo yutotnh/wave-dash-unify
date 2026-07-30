@@ -74,7 +74,7 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src",
+    "lint": "eslint src --max-warnings 0",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "test": "node ./out/test/runTest.js",
