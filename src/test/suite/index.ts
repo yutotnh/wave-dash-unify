@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as Mocha from "mocha";
+import Mocha from "mocha";
 
 /**
  * ディレクトリを再帰的に走査してテストファイルを集める
@@ -50,14 +50,14 @@ export async function run(): Promise<void> {
       // Run the mocha test
       mocha.run((failures) => {
         if (failures > 0) {
-          e(new Error(`${failures} tests failed.`));
+          e(new Error(`${failures.toString()} tests failed.`));
         } else {
           c();
         }
       });
     } catch (err) {
       console.error(err);
-      e(err);
+      e(err instanceof Error ? err : new Error(String(err)));
     }
   });
 }
