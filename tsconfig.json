@@ -13,7 +13,6 @@
     "noImplicitOverride": true, /* Ensure overriding members in derived classes are marked with an override modifier. */
     "noUnusedLocals": true, /* Report errors on unused locals. */
     "noPropertyAccessFromIndexSignature": true, /* Require undeclared properties from index signatures to use element accesses. */
-    "useUnknownInCatchVariables": true, /* Type catch clause variables as unknown instead of any. */
     "forceConsistentCasingInFileNames": true, /* Ensure that casing is correct in imports. */
     "exactOptionalPropertyTypes": true /* Interpret optional property types as written, rather than adding undefined. */
   }
