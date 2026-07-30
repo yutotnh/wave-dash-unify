@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as Mocha from "mocha";
+import Mocha from "mocha";
 
 /**
  * ディレクトリを再帰的に走査してテストファイルを集める
