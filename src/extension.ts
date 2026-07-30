@@ -78,10 +78,9 @@ let statusBarItem: vscode.StatusBarItem;
 
 // ステータスバー更新のデバウンサ。setupStatusBarItemによる再代入後も
 // 正しいstatusBarItemを使うように、値ではなく変数を捕捉するクロージャにする
-const statusBarUpdateDebouncer = createDebouncer(
-  () => updateStatusBarItem(statusBarItem),
-  STATUS_BAR_UPDATE_DEBOUNCE_MS,
-);
+const statusBarUpdateDebouncer = createDebouncer(() => {
+  updateStatusBarItem(statusBarItem);
+}, STATUS_BAR_UPDATE_DEBOUNCE_MS);
 
 // 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)
 // postponedがtrueのものは「dirtyだった、またはアクティブエディタでなかったため
@@ -201,7 +200,9 @@ export function activate(context: vscode.ExtensionContext) {
             quickPick.hide();
           });
 
-          quickPick.onDidHide(() => quickPick.dispose());
+          quickPick.onDidHide(() => {
+            quickPick.dispose();
+          });
 
           quickPick.show();
         },
@@ -376,10 +377,9 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
 
   let debouncer = saveConversionDebouncers.get(key);
   if (!debouncer) {
-    debouncer = createDebouncer(
-      () => runScheduledConversion(key),
-      SAVE_CONVERSION_DEBOUNCE_MS,
-    );
+    debouncer = createDebouncer(() => {
+      runScheduledConversion(key);
+    }, SAVE_CONVERSION_DEBOUNCE_MS);
     saveConversionDebouncers.set(key, debouncer);
   }
 
@@ -463,7 +463,7 @@ function resumePendingConversionIfActive(
 
   const key = document.uri.toString();
   const pending = pendingConversions.get(key);
-  if (!pending || !pending.postponed) {
+  if (!pending?.postponed) {
     return;
   }
 
@@ -632,8 +632,11 @@ export function containsConvertTargetCharacters(
  */
 export function isConvertEnabled(): boolean {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
+  const enabled = config.get<boolean>("enableConvert");
 
-  return config.get("enableConvert") as boolean;
+  // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
+  // 型のためだけの分岐で、到達したら安全側(変換しない)に倒す
+  return enabled ?? false;
 }
 
 /**
@@ -786,7 +789,12 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   const activeEditor = vscode.window.activeTextEditor;
 
   const config = vscode.workspace.getConfiguration("waveDashUnify");
-  const format = config.get<string>("statusBarFormat") as string;
+  const format = config.get<string>("statusBarFormat");
+  // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
+  // 型のためだけの分岐で、ここに到達したらステータスバーの更新自体を諦める
+  if (format === undefined) {
+    return;
+  }
 
   // アクティブなテキストエディタがファイルではない場合は
   // 全角チルダと波ダッシュの個数を表示しても意味がないので、
@@ -833,7 +841,5 @@ export function deactivate() {
     }
   }
 
-  if (statusBarItem) {
-    statusBarItem.dispose();
-  }
+  statusBarItem.dispose();
 }

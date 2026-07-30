@@ -10,13 +10,16 @@ module.exports = [
     ignores: ["out/**", "dist/**", "**/*.d.ts"],
   },
   js.configs.recommended,
-  ...tsPlugin.configs["flat/recommended"],
+  ...tsPlugin.configs["flat/strict-type-checked"],
+  ...tsPlugin.configs["flat/stylistic-type-checked"],
   {
     languageOptions: {
       parser: tsParser,
       parserOptions: {
         ecmaVersion: 6,
         sourceType: "module",
+        projectService: true,
+        tsconfigRootDir: __dirname,
       },
     },
     rules: {

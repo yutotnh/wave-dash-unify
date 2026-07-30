@@ -33,6 +33,15 @@ updates:
       - dependency-name: "mocha"
         update-types: ["version-update:semver-major"]
 
+      # TypeScript 7 (the native/Go "tsgo" rewrite) is not yet supported by
+      # the rest of the toolchain: @typescript-eslint's peer dependency caps
+      # typescript at <6.1.0 (no compatible release exists, even canary), and
+      # ts-loader crashes calling the native compiler's host APIs. Stay on
+      # 6.x until @typescript-eslint and ts-loader ship majors that support
+      # TypeScript 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "github-actions"
     directory: "/" # Location of package manifests
     schedule:
