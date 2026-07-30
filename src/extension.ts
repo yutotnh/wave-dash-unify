@@ -628,8 +628,11 @@ export function containsConvertTargetCharacters(
  */
 export function isConvertEnabled(): boolean {
   const config = vscode.workspace.getConfiguration("waveDashUnify");
+  const enabled = config.get<boolean>("enableConvert");
 
-  return config.get("enableConvert", true);
+  // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
+  // 型のためだけの分岐で、到達したら安全側(変換しない)に倒す
+  return enabled ?? false;
 }
 
 /**
