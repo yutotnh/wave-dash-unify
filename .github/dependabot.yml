@@ -12,10 +12,38 @@ updates:
     reviewers:
       - "yutotnh"
     ignore:
-      # Keep @types/node aligned with VS Code's Node.js major (see .nvmrc).
-      # Allow patch/minor updates within the major, but ignore major bumps so
-      # the type definitions don't drift ahead of the runtime Node.js version.
-      # Bump this rule when .nvmrc moves to a new Node.js major.
+      # @types/node is intentionally kept aligned with .nvmrc (the Node.js
+      # version microsoft/vscode itself builds/develops with), NOT with the
+      # Node.js runtime bundled by the oldest supported VS Code
+      # (engines.vscode). Those are two different Node.js versions: the
+      # Extension Host that our own extension code (everything under src/
+      # except src/test/runTest.ts) runs in is bound by
+      # engines.vscode's bundled Node.js (currently v16.13.0, since
+      # engines.vscode: "^1.66.0" bundles Electron 17.2.0, which bundles
+      # Node.js v16.13.0 per Electron's DEPS file), while src/test/runTest.ts
+      # (the dev/CI-machine test launcher, run via
+      # `node ./out/test/runTest.js`, never inside the Extension Host) runs
+      # under .nvmrc's Node.js.
+      #
+      # We previously tried pinning @types/node itself to the Extension
+      # Host's Node.js floor (16.x), but that doesn't work: it breaks tsc for
+      # runTest.ts (which legitimately uses Node 18.3+'s node:util.parseArgs)
+      # and @types/node@16.x's own .d.ts files conflict with our pinned
+      # TypeScript version, fixable only via skipLibCheck, which we don't
+      # want to trade away. Instead, Node 18+-only builtin misuse in the
+      # Extension-Host-bound files is caught by eslint-plugin-n's
+      # n/no-unsupported-features/* rules in eslint.config.js (scoped to
+      # >=16.13.0 for src/**/*.ts, >=18.3.0 for runTest.ts), so @types/node
+      # can keep tracking .nvmrc without drift risk to the actual runtime
+      # floor. That guard covers global references and module members only,
+      # not prototype methods (Array#at etc.), which tsconfig.json's
+      # "lib": ["ES2020"] catches instead.
+      # Allow patch/minor updates within the .nvmrc major, but ignore
+      # major bumps so this ignore-rule isn't silently made stale.
+      # Bump this rule (and the eslint-plugin-n version ranges) when .nvmrc
+      # moves to a new Node.js major, and revisit the eslint-plugin-n version
+      # floors if engines.vscode moves to a newer minimum VS Code version
+      # that bundles a newer Node.js major.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 

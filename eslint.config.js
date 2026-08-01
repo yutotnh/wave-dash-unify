@@ -4,6 +4,17 @@ const js = require("@eslint/js");
 const tsPlugin = require("@typescript-eslint/eslint-plugin");
 const tsParser = require("@typescript-eslint/parser");
 const prettierConfig = require("eslint-config-prettier");
+const nPlugin = require("eslint-plugin-n");
+
+// n/no-unsupported-features/* only flags globals that ESLint's scope
+// analysis can see as declared globals (checked via eslint-utils'
+// ReferenceTracker against languageOptions.globals). Without this,
+// @typescript-eslint/parser resolves Node/Web globals (structuredClone,
+// fetch, etc.) through @types/node's ambient declarations instead, so the
+// rule silently never flags them. Reuse the plugin's own recommended
+// globals list rather than hand-picking a subset.
+const nodeBuiltinGlobals =
+  nPlugin.configs["flat/recommended"].languageOptions.globals;
 
 module.exports = [
   {
@@ -28,6 +39,72 @@ module.exports = [
       eqeqeq: "warn",
       "no-throw-literal": "warn",
       semi: "off",
+    },
+  },
+  {
+    // Code that runs inside the VS Code Extension Host is bound by the
+    // Node.js version bundled by the OLDEST supported VS Code
+    // (engines.vscode), not by .nvmrc. engines.vscode: "^1.66.0" -> VS Code
+    // 1.66.0 bundles Electron 17.2.0 -> Electron 17.2.0 bundles Node.js
+    // v16.13.0 (see Electron's DEPS file). Guard against accidentally using
+    // Node 18+-only builtins (structuredClone, fetch, fs.cp, etc.) that tsc
+    // alone would not catch, since @types/node intentionally tracks .nvmrc
+    // (see .github/dependabot.yml) rather than this runtime floor. Matches
+    // all of src/ (not an explicit file list) so newly added files are
+    // covered by default; src/test/runTest.ts overrides this below with its
+    // own floor.
+    //
+    // Scope caveat: these rules only inspect global references and module
+    // members. Prototype methods (Array#at, String#replaceAll, ...) are NOT
+    // covered; those are caught by tsconfig.json's "lib": ["ES2020"]
+    // instead. The rules' data is not exhaustive either (localStorage,
+    // EventSource and Array.fromAsync have no entry in eslint-plugin-n
+    // 18.x), so treat this as a safety net rather than a proof.
+    files: ["src/**/*.ts"],
+    plugins: { n: nPlugin },
+    languageOptions: {
+      globals: nodeBuiltinGlobals,
+    },
+    rules: {
+      "n/no-unsupported-features/node-builtins": [
+        "error",
+        { version: ">=16.13.0" },
+      ],
+      "n/no-unsupported-features/es-builtins": [
+        "error",
+        { version: ">=16.13.0" },
+      ],
+    },
+  },
+  {
+    // src/test/runTest.ts is the dev/CI-machine test launcher (run via
+    // `node ./out/test/runTest.js`, never inside the Extension Host), so it
+    // is bound by .nvmrc's Node.js version (currently 24.x), not by the
+    // Extension Host floor above. The floor is set to the version that
+    // introduced util.parseArgs (18.3.0) rather than .nvmrc's current major,
+    // since that is the actual minimum this file's code requires.
+    // allowExperimental is needed because parseArgs was flagged
+    // "experimental" until Node 20.0.0; that stability label doesn't matter
+    // here since dev/CI machines always run .nvmrc's Node (currently far
+    // newer than 20), so it never actually executes in an
+    // experimental-only Node.
+    files: ["src/test/runTest.ts"],
+    plugins: { n: nPlugin },
+    languageOptions: {
+      globals: nodeBuiltinGlobals,
+    },
+    rules: {
+      "n/no-unsupported-features/node-builtins": [
+        "error",
+        { version: ">=18.3.0", allowExperimental: true },
+      ],
+      // Overrides the broader src/**/*.ts block's es-builtins floor above
+      // (>=16.13.0); without this, this file would inherit the stricter
+      // Extension Host floor instead of its own >=18.3.0 dev/CI-machine one.
+      "n/no-unsupported-features/es-builtins": [
+        "error",
+        { version: ">=18.3.0" },
+      ],
     },
   },
   prettierConfig,
