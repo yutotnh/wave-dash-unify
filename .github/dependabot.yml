@@ -26,12 +26,26 @@ updates:
       # under .nvmrc's Node.js.
       #
       # We previously tried pinning @types/node itself to the Extension
-      # Host's Node.js floor (16.x), but that doesn't work: it breaks tsc for
-      # runTest.ts (which legitimately uses Node 18.3+'s node:util.parseArgs)
-      # and @types/node@16.x's own .d.ts files conflict with our pinned
-      # TypeScript version, fixable only via skipLibCheck, which we don't
-      # want to trade away. Instead, Node 18+-only builtin misuse in the
-      # Extension-Host-bound files is caught by eslint-plugin-n's
+      # Host's Node.js floor (16.x), but that hits two INDEPENDENT blockers,
+      # either one fatal on its own (confirmed by actually installing
+      # @types/node@16.18.126 and running tsc, not just reasoning about it):
+      #   1. It breaks tsc for runTest.ts, which legitimately uses Node
+      #      18.3+'s node:util.parseArgs -> TS2305 (parseArgs doesn't exist
+      #      on this @types/node's node:util). Rewriting runTest.ts to avoid
+      #      parseArgs removes only this error.
+      #   2. @types/node@16.x's own .d.ts has an internal conflict with our
+      #      pinned TypeScript version: node_modules/@types/node/https.d.ts
+      #      fails with TS2320 ("Interface 'AgentOptions' cannot
+      #      simultaneously extend types 'AgentOptions' and
+      #      'ConnectionOptions'"), fixable only via skipLibCheck, which we
+      #      don't want to trade away. This is unrelated to our own code and
+      #      still fails even after fixing (1). Downgrading typescript to
+      #      dodge it (tried 5.3.3) just trades TS2320 for a different
+      #      conflict in @vscode/test-electron's own .d.ts (TS2315, "Type
+      #      'Buffer' is not generic"), since that dependency's types also
+      #      assume a newer @types/node.
+      # Instead, Node 18+-only builtin misuse in the Extension-Host-bound
+      # files is caught by eslint-plugin-n's
       # n/no-unsupported-features/* rules in eslint.config.js (scoped to
       # >=16.13.0 for src/**/*.ts, >=18.3.0 for runTest.ts), so @types/node
       # can keep tracking .nvmrc without drift risk to the actual runtime
