@@ -47,11 +47,19 @@ module.exports = [
     // (engines.vscode), not by .nvmrc. engines.vscode: "^1.66.0" -> VS Code
     // 1.66.0 bundles Electron 17.2.0 -> Electron 17.2.0 bundles Node.js
     // v16.13.0 (see Electron's DEPS file). Guard against accidentally using
-    // Node 18+-only builtins (structuredClone, fs.cp, etc.) that tsc alone
-    // would not catch, since @types/node intentionally tracks .nvmrc (see
-    // .github/dependabot.yml) rather than this runtime floor. Matches all of
-    // src/ (not an explicit file list) so newly added files are covered by
-    // default; src/test/runTest.ts overrides this below with its own floor.
+    // Node 18+-only builtins (structuredClone, fetch, fs.cp, etc.) that tsc
+    // alone would not catch, since @types/node intentionally tracks .nvmrc
+    // (see .github/dependabot.yml) rather than this runtime floor. Matches
+    // all of src/ (not an explicit file list) so newly added files are
+    // covered by default; src/test/runTest.ts overrides this below with its
+    // own floor.
+    //
+    // Scope caveat: these rules only inspect global references and module
+    // members. Prototype methods (Array#at, String#replaceAll, ...) are NOT
+    // covered; those are caught by tsconfig.json's "lib": ["ES2020"]
+    // instead. The rules' data is not exhaustive either (localStorage,
+    // EventSource and Array.fromAsync have no entry in eslint-plugin-n
+    // 18.x), so treat this as a safety net rather than a proof.
     files: ["src/**/*.ts"],
     plugins: { n: nPlugin },
     languageOptions: {

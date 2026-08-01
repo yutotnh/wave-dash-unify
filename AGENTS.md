@@ -28,7 +28,8 @@ wave-dash-unifyは単一パッケージのTypeScript製VS Code拡張機能。本
 - CIは`actions/setup-node`の`node-version-file: ./.nvmrc`で自動追従する(ワークフロー変更は不要)
 - `.devcontainer/`もビルド時に`.nvmrc`を読んでnvmでインストールする(Dockerfileへの直書きはしない)
 - 上げる場合は`.nvmrc`を書き換え、`@types/node`のメジャーバージョンも追従させ、`.github/dependabot.yml`の無視ルールも更新する
-- 注意: `@types/node`(型定義)が追従する`.nvmrc`と、Extension Host内で実際に動くコード(`src/extension.ts`/`debounce.ts`/`eucjp.ts`/`src/test/suite/**`)の実行時Node.jsバージョン(`engines.vscode`が同梱するNode.js、現状v16.13.0)は別物。両者の乖離により`tsc`がNode 18+専用APIの誤用を見逃さないよう、`eslint.config.js`の`eslint-plugin-n`(`n/no-unsupported-features/*`)がExtension Host側コードを実行時floorでガードしている(詳細は`.github/dependabot.yml`の`@types/node`コメント参照)
+- 注意: `@types/node`(型定義)が追従する`.nvmrc`と、Extension Host内で実際に動くコードの実行時Node.jsバージョン(`engines.vscode`が同梱するNode.js、現状v16.13.0)は別物。両者の乖離により`tsc`がNode 18+専用APIの誤用を見逃さないよう、`eslint.config.js`の`eslint-plugin-n`(`n/no-unsupported-features/*`)が`src/**/*.ts`を実行時floorでガードしている(`src/test/runTest.ts`だけはdev/CI機で動くため`>=18.3.0`で上書き。詳細は`.github/dependabot.yml`の`@types/node`コメント参照)
+  - このガードが見るのは**グローバル参照とモジュールメンバのみ**。プロトタイプメソッド(`Array#at`、`String#replaceAll`など)は対象外で、そちらは`tsconfig.json`の`"lib": ["ES2020"]`が捕捉する。ルールのデータ自体も網羅的ではない(`localStorage`/`EventSource`/`Array.fromAsync`等はeslint-plugin-n 18.xに項目がない)ため、安全網であって保証ではない
 
 ## パフォーマンスに関する変更
 

@@ -16,8 +16,8 @@ updates:
       # version microsoft/vscode itself builds/develops with), NOT with the
       # Node.js runtime bundled by the oldest supported VS Code
       # (engines.vscode). Those are two different Node.js versions: the
-      # Extension Host that our own extension code (src/extension.ts,
-      # debounce.ts, eucjp.ts, src/test/suite/**) runs in is bound by
+      # Extension Host that our own extension code (everything under src/
+      # except src/test/runTest.ts) runs in is bound by
       # engines.vscode's bundled Node.js (currently v16.13.0, since
       # engines.vscode: "^1.66.0" bundles Electron 17.2.0, which bundles
       # Node.js v16.13.0 per Electron's DEPS file), while src/test/runTest.ts
@@ -33,9 +33,12 @@ updates:
       # want to trade away. Instead, Node 18+-only builtin misuse in the
       # Extension-Host-bound files is caught by eslint-plugin-n's
       # n/no-unsupported-features/* rules in eslint.config.js (scoped to
-      # >=16.13.0 for those files, >=18.3.0 for runTest.ts), so @types/node
+      # >=16.13.0 for src/**/*.ts, >=18.3.0 for runTest.ts), so @types/node
       # can keep tracking .nvmrc without drift risk to the actual runtime
-      # floor. Allow patch/minor updates within the .nvmrc major, but ignore
+      # floor. That guard covers global references and module members only,
+      # not prototype methods (Array#at etc.), which tsconfig.json's
+      # "lib": ["ES2020"] catches instead.
+      # Allow patch/minor updates within the .nvmrc major, but ignore
       # major bumps so this ignore-rule isn't silently made stale.
       # Bump this rule (and the eslint-plugin-n version ranges) when .nvmrc
       # moves to a new Node.js major, and revisit the eslint-plugin-n version
