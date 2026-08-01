@@ -26,12 +26,18 @@ updates:
       # engines.vscode, never on its own.
       - dependency-name: "@types/vscode"
 
-      # Mocha runs inside the VS Code extension host, so it is bound by the
-      # Node.js version of the OLDEST supported VS Code (1.66 ships Node 14),
-      # not by .nvmrc. Mocha 11 requires Node 18 or newer, so stay on 10.x until
-      # engines.vscode moves past the VS Code releases that bundle Node 14.
-      - dependency-name: "mocha"
-        update-types: ["version-update:semver-major"]
+      # NOTE: mocha is intentionally NOT ignored here (no ignore-rule below).
+      # Mocha runs inside the VS Code extension host, so its Node.js floor
+      # is the OLDEST supported VS Code, not .nvmrc: VS Code 1.66.0
+      # (engines.vscode's floor) bundles Electron 17.2.0, whose Node.js is
+      # v16.13.0 (Electron's DEPS file), not Node 14. Mocha 11 (currently in
+      # use; see #674) declares engines.node >=18.18, which 16.13.0 doesn't
+      # satisfy, but mocha is a devDependency excluded from dist/ and
+      # engines is an install-time warning, not a runtime check. Dependabot's
+      # "ignore" also suppresses security-update PRs, so ignoring majors here
+      # would cost more than an unenforced engines field is worth. Runtime
+      # backstop: `test-minimum-vscode-version` CI (1.66.0 / 1.100.0, 3
+      # OSes) must stay green; if a mocha bump turns it red, revisit this.
 
       # TypeScript 7 (the native/Go "tsgo" rewrite) is not yet supported by
       # the rest of the toolchain: @typescript-eslint's peer dependency caps
