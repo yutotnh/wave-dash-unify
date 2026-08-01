@@ -47,15 +47,12 @@ module.exports = [
     // (engines.vscode), not by .nvmrc. engines.vscode: "^1.66.0" -> VS Code
     // 1.66.0 bundles Electron 17.2.0 -> Electron 17.2.0 bundles Node.js
     // v16.13.0 (see Electron's DEPS file). Guard against accidentally using
-    // Node 18+-only builtins (structuredClone, fs.cp, Array#at, etc.) that
-    // tsc alone would not catch, since @types/node intentionally tracks
-    // .nvmrc (see .github/dependabot.yml) rather than this runtime floor.
-    files: [
-      "src/extension.ts",
-      "src/debounce.ts",
-      "src/eucjp.ts",
-      "src/test/suite/**/*.ts",
-    ],
+    // Node 18+-only builtins (structuredClone, fs.cp, etc.) that tsc alone
+    // would not catch, since @types/node intentionally tracks .nvmrc (see
+    // .github/dependabot.yml) rather than this runtime floor. Matches all of
+    // src/ (not an explicit file list) so newly added files are covered by
+    // default; src/test/runTest.ts overrides this below with its own floor.
+    files: ["src/**/*.ts"],
     plugins: { n: nPlugin },
     languageOptions: {
       globals: nodeBuiltinGlobals,
@@ -92,6 +89,13 @@ module.exports = [
       "n/no-unsupported-features/node-builtins": [
         "error",
         { version: ">=18.3.0", allowExperimental: true },
+      ],
+      // Overrides the broader src/**/*.ts block's es-builtins floor above
+      // (>=16.13.0); without this, this file would inherit the stricter
+      // Extension Host floor instead of its own >=18.3.0 dev/CI-machine one.
+      "n/no-unsupported-features/es-builtins": [
+        "error",
+        { version: ">=18.3.0" },
       ],
     },
   },
