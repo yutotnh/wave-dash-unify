@@ -6,6 +6,16 @@ const tsParser = require("@typescript-eslint/parser");
 const prettierConfig = require("eslint-config-prettier");
 const nPlugin = require("eslint-plugin-n");
 
+// n/no-unsupported-features/* only flags globals that ESLint's scope
+// analysis can see as declared globals (checked via eslint-utils'
+// ReferenceTracker against languageOptions.globals). Without this,
+// @typescript-eslint/parser resolves Node/Web globals (structuredClone,
+// fetch, etc.) through @types/node's ambient declarations instead, so the
+// rule silently never flags them. Reuse the plugin's own recommended
+// globals list rather than hand-picking a subset.
+const nodeBuiltinGlobals =
+  nPlugin.configs["flat/recommended"].languageOptions.globals;
+
 module.exports = [
   {
     ignores: ["out/**", "dist/**", "**/*.d.ts"],
@@ -47,6 +57,9 @@ module.exports = [
       "src/test/suite/**/*.ts",
     ],
     plugins: { n: nPlugin },
+    languageOptions: {
+      globals: nodeBuiltinGlobals,
+    },
     rules: {
       "n/no-unsupported-features/node-builtins": [
         "error",
@@ -72,6 +85,9 @@ module.exports = [
     // experimental-only Node.
     files: ["src/test/runTest.ts"],
     plugins: { n: nPlugin },
+    languageOptions: {
+      globals: nodeBuiltinGlobals,
+    },
     rules: {
       "n/no-unsupported-features/node-builtins": [
         "error",
