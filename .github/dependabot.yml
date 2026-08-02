@@ -1,97 +1,61 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
-
 version: 2
 updates:
   - package-ecosystem: "npm"
-    directory: "/" # Location of package manifests
+    directory: "/"
     schedule:
       interval: "daily"
     reviewers:
       - "yutotnh"
     ignore:
-      # @types/node is intentionally kept aligned with .nvmrc (the Node.js
-      # version microsoft/vscode itself builds/develops with), NOT with the
-      # Node.js runtime bundled by the oldest supported VS Code
-      # (engines.vscode). Those are two different Node.js versions: the
-      # Extension Host that our own extension code (everything under src/
-      # except src/test/runTest.ts) runs in is bound by
-      # engines.vscode's bundled Node.js (currently v16.13.0, since
-      # engines.vscode: "^1.66.0" bundles Electron 17.2.0, which bundles
-      # Node.js v16.13.0 per Electron's DEPS file), while src/test/runTest.ts
-      # (the dev/CI-machine test launcher, run via
-      # `node ./out/test/runTest.js`, never inside the Extension Host) runs
-      # under .nvmrc's Node.js.
-      #
-      # We previously tried pinning @types/node itself to the Extension
-      # Host's Node.js floor (16.x), but that hits two INDEPENDENT blockers,
-      # either one fatal on its own (confirmed by actually installing
-      # @types/node@16.18.126 and running tsc, not just reasoning about it):
-      #   1. It breaks tsc for runTest.ts, which legitimately uses Node
-      #      18.3+'s node:util.parseArgs -> TS2305 (parseArgs doesn't exist
-      #      on this @types/node's node:util). Rewriting runTest.ts to avoid
-      #      parseArgs removes only this error.
-      #   2. @types/node@16.x's own .d.ts has an internal conflict with our
-      #      pinned TypeScript version: node_modules/@types/node/https.d.ts
-      #      fails with TS2320 ("Interface 'AgentOptions' cannot
-      #      simultaneously extend types 'AgentOptions' and
-      #      'ConnectionOptions'"), fixable only via skipLibCheck, which we
-      #      don't want to trade away. This is unrelated to our own code and
-      #      still fails even after fixing (1). Downgrading typescript to
-      #      dodge it (tried 5.3.3) just trades TS2320 for a different
-      #      conflict in @vscode/test-electron's own .d.ts (TS2315, "Type
-      #      'Buffer' is not generic"), since that dependency's types also
-      #      assume a newer @types/node.
-      # Instead, Node 18+-only builtin misuse in the Extension-Host-bound
-      # files is caught by eslint-plugin-n's
-      # n/no-unsupported-features/* rules in eslint.config.js (scoped to
-      # >=16.13.0 for src/**/*.ts, >=18.3.0 for runTest.ts), so @types/node
-      # can keep tracking .nvmrc without drift risk to the actual runtime
-      # floor. That guard covers global references and module members only,
-      # not prototype methods (Array#at etc.), which tsconfig.json's
-      # "lib": ["ES2020"] catches instead.
-      # Allow patch/minor updates within the .nvmrc major, but ignore
-      # major bumps so this ignore-rule isn't silently made stale.
-      # Bump this rule (and the eslint-plugin-n version ranges) when .nvmrc
-      # moves to a new Node.js major, and revisit the eslint-plugin-n version
-      # floors if engines.vscode moves to a newer minimum VS Code version
-      # that bundles a newer Node.js major.
+      # @types/nodeは実行時のExtension Host(src/test/runTest.ts以外の拡張機能本体が
+      # 動く場所。engines.vscode: "^1.66.0"がバンドルするElectron 17.2.0のNode.js、
+      # 現状v16.13.0)ではなく.nvmrc(microsoft/vscode自身の開発用Node.js。
+      # src/test/runTest.tsもこちらで動く)に追従させる。
+      # 過去に@types/node自体をExtension Hostのfloor(16.x)へ固定しようとしたが、
+      # それぞれ単独でも致命的な2つの独立した問題にぶつかった
+      # (実際に@types/node@16.18.126を入れてtscを実行して確認済み):
+      #   1. runTest.tsが使うNode 18.3+のnode:util.parseArgsの型が無くTS2305
+      #      (parseArgsをやめれば解消するのはこの1つだけ)
+      #   2. @types/node@16.x自身のhttps.d.tsが現在のTypeScriptとTS2320で衝突
+      #      (skipLibCheckでしか回避できず、そこは妥協したくない。(1)を直しても
+      #      解消しない。TypeScriptを下げて回避しようとしても(5.3.3で確認)、
+      #      今度は@vscode/test-electron側の型がTS2315で衝突するだけ)
+      # 実行時floorとのずれはeslint.config.jsのeslint-plugin-n
+      # (n/no-unsupported-features/*、src/**/*.tsは>=16.13.0、runTest.tsのみ
+      # >=18.3.0)が検知するため、@types/nodeは安全に.nvmrcへ追従できる。
+      # ただしこのガードはグローバル参照とモジュールメンバのみが対象で、
+      # プロトタイプメソッド(Array#at等)はtsconfig.jsonの"lib": ["ES2021"]が
+      # 別途担保している。
+      # メジャーのみignoreする(パッチ/マイナーは追従させ、ルールが陳腐化しないように
+      # する)。.nvmrcのメジャーを上げる際はこのルールとeslint-plugin-nのバージョン
+      # 範囲も見直す。
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
-      # Keep @types/vscode pinned to engines.vscode in package.json. vsce refuses
-      # to package the extension when @types/vscode is newer than engines.vscode,
-      # and letting the types drift ahead would also let us use APIs that do not
-      # exist in the oldest supported VS Code. Bump this together with
-      # engines.vscode, never on its own.
+      # @types/vscodeはpackage.jsonのengines.vscodeに固定する。vsceはengines.vscode
+      # より新しい@types/vscodeでのパッケージングを拒否するし、型だけ先行させると
+      # 未対応の古いVS Codeに存在しないAPIを使ってしまいかねない。engines.vscodeを
+      # 上げる時だけ一緒に上げる。
       - dependency-name: "@types/vscode"
 
-      # NOTE: mocha is intentionally NOT ignored here (no ignore-rule below).
-      # Mocha runs inside the VS Code extension host, so its Node.js floor
-      # is the OLDEST supported VS Code, not .nvmrc: VS Code 1.66.0
-      # (engines.vscode's floor) bundles Electron 17.2.0, whose Node.js is
-      # v16.13.0 (Electron's DEPS file), not Node 14. Mocha 11 (currently in
-      # use; see #674) declares engines.node >=18.18, which 16.13.0 doesn't
-      # satisfy, but mocha is a devDependency excluded from dist/ and
-      # engines is an install-time warning, not a runtime check. Dependabot's
-      # "ignore" also suppresses security-update PRs, so ignoring majors here
-      # would cost more than an unenforced engines field is worth. Runtime
-      # backstop: `test-minimum-vscode-version` CI (1.66.0 / 1.100.0, 3
-      # OSes) must stay green; if a mocha bump turns it red, revisit this.
+      # NOTE: mochaは意図的にignoreしていない。mochaはExtension Host内で動くため
+      # Node.jsのfloorは.nvmrcでなく最古対応VS Code(1.66.0がバンドルするElectron
+      # 17.2.0のNode.js v16.13.0)基準だが、mocha 11(#674)のengines.nodeは>=18.18で
+      # これを満たさない。ただしmochaはdist/に含まれないdevDependencyで、engines
+      # はインストール時の警告に過ぎない。ignoreはセキュリティ更新PRも止めてしまう
+      # ため、その代償の方が大きいと判断した。実行時の担保は
+      # `test-minimum-vscode-version` CI(1.66.0/1.100.0、3OS)。ここが赤くなったら
+      # 見直す。
 
-      # TypeScript 7 (the native/Go "tsgo" rewrite) is not yet supported by
-      # the rest of the toolchain: @typescript-eslint's peer dependency caps
-      # typescript at <6.1.0 (no compatible release exists, even canary), and
-      # ts-loader crashes calling the native compiler's host APIs. Stay on
-      # 6.x until @typescript-eslint and ts-loader ship majors that support
-      # TypeScript 7.
+      # TypeScript 7(ネイティブ実装の"tsgo")は@typescript-eslintの対応バージョン
+      # 上限(<6.1.0、canaryにも互換版が無い)を超えており、ts-loaderもネイティブ
+      # コンパイラのホストAPI呼び出しでクラッシュするため、6.x系に留める。
+      # 両者がTypeScript 7対応のメジャーを出したら外す。
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
-    directory: "/" # Location of package manifests
+    directory: "/"
     schedule:
       interval: "weekly"
     reviewers:

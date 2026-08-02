@@ -7,21 +7,14 @@ export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
 export const NUMERO_SIGN_CODE_POINT = 0x2116;
 
-// countSpecificCharactersでString#indexOfを使うために、事前に1文字だけの文字列に変換しておく
-// (いずれもサロゲートペアにならないコードポイントのため、1コード単位の文字列として扱える)
+// countSpecificCharactersでString#indexOfを使うため、事前に1文字の文字列へ変換しておく
+// (いずれもサロゲートペアにならないコードポイント)
 //
-// WAVE_DASH_CHAR(U+301C)は、EUC-JPのファイルを扱う限りテキスト中に出現しない。
-// VS CodeのEUC-JPコーデックは 0xA1 0xC1(波ダッシュのバイト列)も
-// 0x8F 0xA2 0xB7(全角チルダのバイト列)も等しくU+FF5Eにデコードし、
-// 逆にU+301Cをエンコードすると表現できず'?'(0x3F)になる。
-// そのため変換対象であるEUC-JPのファイルに限れば、WAVE_DASH_CHARを使った
-// カウントは常に0件になる(issue #635)。
-// ただしステータスバーのカウント(updateStatusBarItem)はドキュメントの
-// エンコーディングを問わず動くため、UTF-8のファイルを開いている場合は
-// U+301Cが現時点で実際にカウントされる。この項を削除するとその表示が
-// 変わってしまうため残している。
-// EUC-JP側の前提はsrc/test/suite/eucjp-encoding-invariants.test.tsで
-// 固定してある
+// WAVE_DASH_CHAR(U+301C)はEUC-JPのファイルでは出現しない(VS CodeのEUC-JPコーデックは
+// 波ダッシュ0xA1 0xC1も全角チルダ0x8F 0xA2 0xB7も等しくU+FF5Eにデコードし、逆に
+// U+301Cはエンコードできず'?'になるため。issue #635。前提はeucjp-encoding-invariants.test.ts
+// で固定してある)。ただしステータスバーのカウントはエンコーディングを問わず動くため、
+// UTF-8のファイルではU+301Cが実際にカウントされる。この項を削除すると表示が変わるため残す
 const WAVE_DASH_CHAR = String.fromCodePoint(WAVEDASH_CODE_POINT);
 const FULLWIDTH_TILDE_CHAR = String.fromCodePoint(FULLWIDTH_TILDE_CODE_POINT);
 const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
@@ -32,61 +25,58 @@ const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
  * 「何を変換するか」の唯一の定義。Unicode文字での判定
  * (containsConvertTargetCharacters)とバイト列での変換
  * (replaceSpecificCharactersInBuffer)の両方をこのテーブルから駆動するため、
- * 変換対象を増やすときはここに1エントリ追加するだけで両方に反映される
+ * 増やすときはここに1エントリ追加するだけでよい
  *
- * 各エントリは以下を満たす必要がある(replaceSpecificCharactersInBufferの
- * 実装がこれらに依存している)
- * - fromはEUC-JPのSS3バイト(0x8F)で始まる: SS3の位置だけをindexOfで走査して
- *   候補位置を絞るため
- * - to.length <= from.length: 出力用Bufferを入力と同じ長さで確保するため
+ * 各エントリの制約(replaceSpecificCharactersInBufferの実装が依存している):
+ * - fromはEUC-JPのSS3バイト(0x8F)で始まる(SS3の位置だけをindexOfで走査するため)
+ * - to.length <= from.length(出力用Bufferを入力と同じ長さで確保するため)
  */
 export const CONVERT_TARGETS = [
   {
     char: FULLWIDTH_TILDE_CHAR,
     configKey: "fullwidthTildeToWaveDash",
-    from: [0x8f, 0xa2, 0xb7], // 全角チルダ
-    to: [0xa1, 0xc1], // 波ダッシュ
+    from: [0x8f, 0xa2, 0xb7],
+    to: [0xa1, 0xc1],
   },
   {
     char: NUMERO_SIGN_CHAR,
     configKey: "numeroSignToNumeroSign",
-    from: [0x8f, 0xa2, 0xf1], // 全角NO
+    from: [0x8f, 0xa2, 0xf1], // 全角NO(表示は同じだが下のtoとは異なるバイト列)
     to: [0xad, 0xe2], // 全角NO
   },
 ] as const;
 
 type ConvertTarget = (typeof CONVERT_TARGETS)[number];
 
-// ステータスバー更新のデバウンス時間(ms)
-// キーストロークのたびに全文スキャンが走らないように、この時間内の連続更新要求を1回にまとめる
+// ステータスバー更新のデバウンス時間(ms)。キーストロークのたびに全文スキャンが
+// 走らないよう、この時間内の連続更新要求を1回にまとめる
 const STATUS_BAR_UPDATE_DEBOUNCE_MS = 200;
 
-// 保存後の変換を実行するまでのデバウンス時間(ms)
-// Ctrl+S長押しなどで保存イベントが連続する間はファイルを書き換えず、
-// 保存が落ち着いてから1回だけ変換する。保存の合間に拡張機能がファイルを
-// 書き換えると、VS Codeが記録しているファイル状態(etag)とディスクがズレて
-// 次の保存が「上書きに失敗しました」になるため(issue #13)
+// 保存後の変換を実行するまでのデバウンス時間(ms)。
 //
-// 300msという値自体に実測データに基づく厳密な根拠はない。
-// 「OSのキーリピートによる連打(間隔は数十ms程度)よりは確実に長く、
-// 人が意図して次の保存操作をするまでの間隔よりは短い」という経験則で
-// 選んだ暫定値。この不等式さえ満たせば正しさは変わらないため、
-// 体感で長すぎる/短すぎると感じた場合は変更して問題ない
+// 保存の合間に拡張機能がファイルを書き換えると、VS Codeが記録しているファイル状態
+// (etag)とディスクがズレて次の保存が「上書きに失敗しました」になる(issue #13)。
+// これを避けるため、Ctrl+S長押しなどで保存イベントが連続する間は書き換えず、
+// 保存が落ち着いてから1回だけ変換する
+//
+// 300msという値自体に実測データに基づく厳密な根拠はない。「OSのキーリピートに
+// よる連打(間隔は数十ms程度)よりは確実に長く、人が意図して次の保存操作をする
+// までの間隔よりは短い」という経験則で選んだ暫定値で、この不等式さえ満たせば
+// 正しさは変わらない
 export const SAVE_CONVERSION_DEBOUNCE_MS = 300;
 
 let statusBarItem: vscode.StatusBarItem;
 
-// ステータスバー更新のデバウンサ。setupStatusBarItemによる再代入後も
-// 正しいstatusBarItemを使うように、値ではなく変数を捕捉するクロージャにする
+// setupStatusBarItemによる再代入後も正しいstatusBarItemを使うように、
+// 値ではなく変数を捕捉するクロージャにする
 const statusBarUpdateDebouncer = createDebouncer(() => {
   updateStatusBarItem(statusBarItem);
 }, STATUS_BAR_UPDATE_DEBOUNCE_MS);
 
-// 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)
-// postponedがtrueのものは「dirtyだった、またはアクティブエディタでなかったため
-// 変換を先送りした」状態で、次の保存・アクティブ化・クローズ・deactivateの
-// いずれかのタイミングで変換される(判定はrunScheduledConversionを参照)。
-// デバウンスのタイマー自体はsaveConversionDebouncersが個別に保持する
+// 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)。
+// postponed: trueは「dirtyだった、またはアクティブエディタでなかったため
+// 先送りした」状態で、次の保存・アクティブ化・クローズ・deactivateのいずれかで
+// 変換される(判定はrunScheduledConversionを参照)
 const pendingConversions = new Map<
   string,
   {
@@ -95,9 +85,7 @@ const pendingConversions = new Map<
   }
 >();
 
-// 保存後変換のデバウンサ(キー: ドキュメントのURI文字列)。ステータスバー更新の
-// デバウンス(statusBarUpdateDebouncer)と同じcreateDebouncerを使うことで、
-// キャンセル・再スケジュールのロジックを共有する
+// 保存後変換のデバウンサ(キー: ドキュメントのURI文字列)
 const saveConversionDebouncers = new Map<string, Debouncer>();
 
 export function activate(context: vscode.ExtensionContext) {
@@ -126,7 +114,6 @@ export function activate(context: vscode.ExtensionContext) {
         },
       ),
       // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
-      // 保存イベントの連続発火中に書き換えると保存と競合するため、デバウンスして実行する
       vscode.workspace.onDidSaveTextDocument((document) => {
         scheduleSaveConversion(document);
       }),
@@ -135,7 +122,6 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidCloseTextDocument((document) => {
         flushPendingConversion(document.uri.toString());
       }),
-      // アクティブファイルが変更された時や文字が変更された時に、ステータスバーの表示を更新する
       vscode.window.onDidChangeActiveTextEditor((editor) => {
         // エディタが切り替わったので、直前のエディタ向けにスケジュールされていた更新は不要
         statusBarUpdateDebouncer.cancel();
@@ -152,11 +138,9 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        // 連続するキーストロークのたびに全文スキャンが走らないように、更新をデバウンスする
         statusBarUpdateDebouncer.schedule();
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        // この拡張機能に関係ない設定変更では更新不要
         if (!e.affectsConfiguration("waveDashUnify")) {
           return;
         }
@@ -164,7 +148,6 @@ export function activate(context: vscode.ExtensionContext) {
         updateStatusBarItem(statusBarItem);
       }),
 
-      // StatusBarのクリックイベントを登録
       vscode.commands.registerCommand(
         "waveDashUnify.SelectEnableOrDisable",
         () => {
@@ -235,13 +218,11 @@ export function replaceSpecificCharacters(
     return false;
   }
 
-  // 変換対象文字がドキュメントに1つもなければ、ディスクを読みに行く必要すらない。
-  // これが安全なのは「保存直後のテキストが真実源だから」ではなく、EUC-JPで
-  // 0x8F 0xA2 0xB7(全角チルダ)を生成できる文字がU+FF5E以外に無く、
-  // 0x8F 0xA2 0xF1(全角NO)を生成できる文字もU+2116以外に無いため。
-  // つまりテキスト上の判定は「変換対象バイト列の有無」の安全側の過剰近似になる
-  // (変換後のバイト列0xA1 0xC1 / 0xAD 0xE2はデコードするとそれぞれU+FF5E /
-  // U+2116に戻るため、既に変換済みのファイルも取りこぼされない)
+  // 変換対象文字がドキュメントに1つもなければディスクを読む必要すらない。安全な理由は
+  // 「保存直後のテキストが真実源だから」ではなく、EUC-JPで0x8F 0xA2 0xB7(全角チルダ)を
+  // 生成できる文字がU+FF5E以外に無く、0x8F 0xA2 0xF1(全角NO)もU+2116以外に無いため
+  // (変換後のバイト列0xA1 0xC1 / 0xAD 0xE2もデコードすればU+FF5E / U+2116に戻るので、
+  // 既に変換済みのファイルも取りこぼさない)
   if (!containsConvertTargetCharacters(document)) {
     return false;
   }
@@ -259,27 +240,23 @@ export function replaceSpecificCharacters(
  * @returns `true`: ファイルを書き換えた, `false`: 書き換え不要だった
  */
 function convertSavedFile(document: vscode.TextDocument): boolean {
-  // 変換をスケジュールした後に設定で無効化・EUC-JP以外へのエンコード変更が
-  // 行われた場合は何もしない。スケジュール時点(scheduleSaveConversion)や
-  // replaceSpecificCharactersでしか確認しないと、isClosed分岐や
-  // flushPendingConversionがこの関数を直接呼ぶ経路(スケジュール後にクローズや
-  // deactivateが起きた場合)で無効化・エンコード変更を無視してディスクを
-  // 書き換えてしまう(例: EUC-JPで保存してスケジュールが成立した後、
-  // 「エンコード付きで保存」でUTF-8に変換してからタブを閉じる、という手順を
-  // 踏むとこのチェックなしにはファイルを破損しうる)
+  // スケジュール後にisClosed分岐やflushPendingConversionから直接呼ばれる経路がある
+  // (クローズやdeactivateが挟まるケース)ため、ここでも設定無効化・EUC-JP以外への
+  // エンコード変更を再チェックする(例: EUC-JPで保存後、UTF-8に「エンコード付きで
+  // 保存」してからタブを閉じる、という手順を踏むとチェックなしにはファイルを破損する)
   if (!isConvertEnabled() || !canBeEUCJP(document)) {
     return false;
   }
 
   const fileName = document.fileName;
 
-  // エンコードするよりも、ファイルを直接読み込んだ方が実行時間が短い
-  // const content = Buffer.from(await vscode.workspace.encode(document.getText(), { encoding: "EUC-JP" }));
+  // エンコードするよりファイルを直接読み込んだ方が実行時間が短い
   const content = fs.readFileSync(fileName);
 
   const convertedString = replaceSpecificCharactersInBuffer(content);
 
-  // 変換対象がない場合は入力のBufferがそのまま返るため、参照比較だけで書き換え不要と判定できる
+  // 変換対象がない場合は入力のBufferがそのまま返るため、参照比較だけで
+  // 書き換え不要と判定できる
   if (
     convertedString === content ||
     Buffer.compare(convertedString, content) === 0
@@ -287,32 +264,21 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
     return false;
   }
 
-  // ファイルを書き換える直前の最終判定。VS Code 1.100.0未満には
-  // TextDocument.encodingが無く、ここまでの判定(canBeEUCJP)は
-  // 「EUC-JPかもしれない」までしか言えていない。読み込んだバイト列を使って
-  // ここで確定させる(1.100.0以降ではバイト列を見ずに判定済みの結果を返す)
+  // VS Code 1.100.0未満にはTextDocument.encodingが無く、ここまでの判定(canBeEUCJP)は
+  // 「EUC-JPかもしれない」までしか言えないため、読み込んだバイト列で最終確定させる
+  // (1.100.0以降はO(1)で判定済みの結果を返すため以下の順序の議論は関係ない)。
   //
-  // この判定は置換の走査より「後」に置く。置換対象が1つも無ければ
-  // ディスクは書き換わらないので、そもそもエンコーディングを確定させる必要が無い。
-  // 1.100.0未満のisEUCJPBufferはファイル全体を走査するため、順序を逆にすると
-  // 「この拡張機能が一度変換したEUC-JPファイルを再保存する」という日常的な
-  // ケース(テキストには～があるので足切りを通るが、バイト列は既に変換済みで
-  // 置換は発生しない)で毎回この全走査を払うことになる。
-  // 実測では10MBのファイルで22.5ms -> 1.3msになった。
-  // 1.100.0以降はどちらの順序でもO(1)で変わらない。
+  // この判定をあえて置換の走査より後に置いているのは、1.100.0未満のisEUCJPBufferが
+  // ファイル全体を走査するため。順序を逆にすると「一度変換したEUC-JPファイルを再保存する」
+  // という日常的なケースで毎回この全走査を払うことになる(実測: 10MBで22.5ms -> 1.3ms)。
+  // 逆に「EUC-JPとして不正だが変換対象のバイト列は含む」ファイル(Shift_JISの日本語ファイル
+  // など。0x8FはShift_JISの有効なリードバイト)では、この順序だと不正判定より前に置換用
+  // Bufferの確保・コピーを払う分だけ遅くなる(10MBで1.6〜2.4ms増)が、同じ関数が手前で
+  // 払っているfs.readFileSyncより小さいため許容している。
   //
-  // 逆に遅くなるケースもある。「EUC-JPとして不正だが変換対象のバイト列は含む」
-  // ファイル(現実的にはShift_JISの日本語ファイル。0x8FはShift_JISの有効な
-  // リードバイトのため)では、順序が逆なら不正なバイトを見つけた時点で
-  // 即座に弾けたところを、置換用Bufferの確保とコピーの分だけ余計に払う。
-  // 10MBで1.6〜2.4msの増加で、同じ関数が手前で払っているfs.readFileSyncより
-  // 小さいため許容している
-  //
-  // 安全性は順序に依存しない。replaceSpecificCharactersInBufferは
-  // 引数のBufferを読むだけで書き換えず(返すのは引数そのものか新しいBufferの
-  // どちらか)副作用が無いため、書き込みは必ずこの判定を通過した後にしか起きない。
-  // この不変条件はsrc/test/suite/eucjp-legacy-path.test.tsで、
-  // 実際にディスクの中身を確認する形で固定してある
+  // 安全性は順序に依存しない。replaceSpecificCharactersInBufferはBufferを読むだけで
+  // 書き換えないため、書き込みは必ずこの判定を通過した後にしか起きない。この不変条件は
+  // eucjp-legacy-path.test.tsでディスクの中身を確認する形で固定してある
   if (!isEUCJPConfirmed(document, content)) {
     return false;
   }
@@ -325,16 +291,9 @@ function convertSavedFile(document: vscode.TextDocument): boolean {
 /**
  * 保存されたドキュメントの変換をデバウンス付きでスケジュールする
  *
- * Ctrl+S長押しなどで保存が連続する間はタイマーをリセットし続け、
- * 保存が止まってからSAVE_CONVERSION_DEBOUNCE_MSが経過した時点で1回だけ変換する。
- * これにより保存イベントの連続中はVS Code自身の書き込みしか発生せず、
- * VS Codeが記録しているファイル状態(etag)とディスクがズレないため、
- * 「上書きに失敗しました」(issue #13)が発生しない
- *
- * タイマー自体はドキュメントごと(URIごと)にcreateDebouncerで作成し
- * saveConversionDebouncersに保持する。2回目以降の保存では既存のDebouncerを
- * 再利用してscheduleし直すだけで、キャンセル・再作成のロジックはcreateDebouncer側に
- * 任せられる
+ * デバウンスする理由・時間はSAVE_CONVERSION_DEBOUNCE_MSの定義を参照。
+ * タイマーはドキュメントごと(URIごと)にcreateDebouncerで作成しsaveConversionDebouncersに
+ * 保持し、2回目以降の保存では既存のDebouncerを再利用してscheduleし直すだけにする
  *
  * @param document 保存されたドキュメント
  */
@@ -348,22 +307,13 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
     return;
   }
 
-  // VS Code 1.100.0未満ではcanBeEUCJPが常にtrueになるため、この足切りが無いと
-  // 保存したすべてのファイルがpendingConversionsに積まれてしまう。すると
-  // クローズやdeactivateからのflushPendingConversion -> convertSavedFileの経路が
-  // 変換対象文字の有無を確認しないまま毎回ディスクを読むことになり、
-  // #633で削った読み込みが古いVS Codeでだけ復活する。
-  // containsConvertTargetCharactersは保存直後のテキストを見るため、
-  // ここで対象文字が無ければ「この保存で変換すべきものは無い」と言い切れる。
-  //
-  // ただしこの足切り自体もコストを持つ。1.100.0以降はisEUCJPDocumentが
-  // O(1)でEUC-JP以外を落とすのでここには来ないが、1.100.0未満では
-  // エンコーディングを問わず保存されたすべてのファイルで
-  // containsConvertTargetCharacters(= document.getText()による全文のUTF-16コピー
-  // と走査)が走る。つまり#627 / #633で削った全文走査を完全には消せておらず、
-  // 古いVS Codeでは大きなファイルの保存時にこの分の遅延が残る。
-  // ディスクを読む前に使える判定材料が他に無いため、
-  // 「毎回ディスクを読む」よりは軽いこちらを選んでいる
+  // VS Code 1.100.0未満はcanBeEUCJPが常にtrueになるため、この足切りが無いと保存した
+  // すべてのファイルがpendingConversionsに積まれ、クローズ/deactivate経由の
+  // flushPendingConversion -> convertSavedFileが対象文字の有無を確認せず毎回ディスクを
+  // 読むことになり、#633で削った読み込みが古いVS Codeでだけ復活してしまう。
+  // ただし1.100.0未満ではこの判定自体がdocument.getText()による全文走査になるため、
+  // #627 / #633で削った全文走査を完全には消せておらず、大きなファイルの保存時には
+  // この分の遅延が残る(ディスクを読む前に使える判定材料が他に無いため許容している)
   if (
     needsBytesToDecideEUCJP(document) &&
     !containsConvertTargetCharacters(document)
@@ -391,15 +341,14 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
  *
  * 実行してよいかどうかを次の4分類で判定する:
  *
- * 1. ドキュメントが破棄済み(isClosed)      -> そのまま変換する
- *    (モデルが存在しないのでetagの不整合が起きない)
- * 2. dirty(未保存の編集がある)             -> 先送り
- *    ここでファイルを書き換えると、その後の保存が「上書きに失敗しました」になる
- * 3. アクティブエディタではない             -> 先送り
- *    etagの同期手段であるrevertはアクティブエディタにしか作用しないため、
- *    非アクティブなまま変換するとetagが同期されずissue #13が再発する
- *    (実測で確認済み。VS Codeのファイルウォッチャーによる自動再読込にも委ねられない)
- * 4. アクティブかつ非dirty                 -> 変換 + revertでetagを同期する
+ * 1. ドキュメントが破棄済み(isClosed) -> そのまま変換する
+ *    (モデルが無くetagの不整合が起きない)
+ * 2. dirty(未保存の編集がある)        -> 先送り
+ *    (issue #13。SAVE_CONVERSION_DEBOUNCE_MS参照)
+ * 3. アクティブエディタではない        -> 先送り
+ *    (revertがアクティブエディタにしか効かないため。非アクティブなまま変換すると
+ *    etagが同期されずissue #13が再発することを実測で確認済み。詳細はsyncEditorWithConvertedFile参照)
+ * 4. アクティブかつ非dirty            -> 変換 + revertでetagを同期する
  *
  * 2, 3で先送りしたものは、次の保存(再スケジュール)・onDidChangeActiveTextEditorでの
  * 再開(resumePendingConversionIfActive)・クローズ・deactivateのいずれかで実行される
@@ -476,30 +425,27 @@ function resumePendingConversionIfActive(
  * onDidCloseTextDocumentとdeactivateから呼ばれる。エディタ上の編集が破棄されている
  * 可能性があるため、ドキュメントのテキストは参照せずディスク上のファイルを直接変換する
  *
- * onDidCloseTextDocumentは「ドキュメントが破棄された時」に発火するイベントであり、
- * VS CodeのAPIドキュメントにも「タブを閉じた時に発火する保証はない」と明記されている
- * (実測でも、タブを閉じただけでは発火しないことを確認した)。そのため「タブを閉じたら
- * 即座に変換される」ことは保証しない。破棄される(または拡張機能がdeactivateする)まで
- * 変換待ちのまま残ることを許容する
+ * onDidCloseTextDocumentは「タブを閉じた時に発火する保証はない」とVS Codeの
+ * APIドキュメントに明記されており、実測でもタブを閉じただけでは発火しないことを
+ * 確認している。そのため「タブを閉じたら即座に変換される」ことは保証せず、
+ * 破棄される(または拡張機能がdeactivateする)まで変換待ちのまま残ることを許容する
  *
- * 書き込みが発生した場合はsyncEditorWithConvertedFileでetagの同期も試みる。
+ * 書き込みが発生した場合はsyncEditorWithConvertedFileでetagの同期も試みるが、
+ * revertが効くのは対象がアクティブかつ非dirtyの場合のみ(詳細は同関数を参照)。
  * onDidCloseTextDocument経由(convertsEvenIfDirty: false)ではドキュメントは
- * 既にisClosedなのでactiveTextEditorと一致せず実質no-opになる(モデルが
- * 存在しないためetagの不整合はそもそも起きない)。deactivate経由
- * (convertsEvenIfDirty: true)では、対象が「拡張機能ホストの再起動」などで
- * まだ生きているエディタモデルの場合があり、そのドキュメントがアクティブかつ
- * 非dirtyであればここでrevertしてetagを同期できる。postponedがdirty起因、
- * または非アクティブ起因の場合はsyncEditorWithConvertedFile内部のチェックで
- * 何もしない(revertはアクティブかつ非dirtyの場合のみ意味を持ち、それ以外を
- * 外部から同期する公開APIはVS Codeに存在しないため、残余リスクとして許容する)
+ * 既にisClosedなので実質no-opになる(モデルが存在しないためetagの不整合はそもそも
+ * 起きない)。deactivate経由(convertsEvenIfDirty: true)では、拡張機能ホストの
+ * 再起動などでまだ生きているエディタモデルが対象の場合、アクティブかつ非dirtyで
+ * あればrevertでetagを同期できる。postponedがdirty起因、または非アクティブ起因の
+ * 場合は同期されないまま残るが、それらを外部から同期する公開APIはVS Codeに
+ * 存在しないため、残余リスクとして許容する
  *
  * ドキュメントがクローズされる際は、変換が既にrunScheduledConversionの成功パスで
  * 完了していてpendingConversionsにエントリが残っていない場合でも、
  * scheduleSaveConversionが作成したDebouncerを必ず解放する。成功パスは
  * pendingConversionsのエントリだけを削除しDebouncerオブジェクト自体は
- * (同じファイルへの次回保存で再利用できるよう)残すため、ここで解放しないと
- * 一度でも保存されたEUC-JPファイルのURIごとにオブジェクトがsaveConversionDebouncers
- * に溜まり続けてしまう
+ * (次回保存での再利用のため)残すため、ここで解放しないと保存されたEUC-JPファイルの
+ * URIごとにオブジェクトがsaveConversionDebouncersに溜まり続けてしまう
  *
  * @param key pendingConversionsのキー(ドキュメントのURI文字列)
  * @param convertsEvenIfDirty `true`: dirtyなドキュメントでも変換する(deactivate用)
@@ -515,15 +461,13 @@ function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
 
   const document = pending.document;
 
-  // dirtyなまま書き換えると、その後の保存が「上書きに失敗しました」になる(issue #13)。
-  // onDidCloseTextDocument発火時点でdirtyになっていることは通常ないが、防御的にガードする。
-  // ただしdeactivate時はこれ以降の保存が起きないため、dirtyでも変換する
-  // (ここでスキップすると変換されないまま終了してしまう。hot exitが有効な場合、
-  //  dirtyなドキュメントは確認ダイアログなしで保持されるため、この状態は実際に起こり得る)
-  //
-  // このガードはpendingConversionsを削除する前に判定する。先に削除すると、
-  // 変換をスキップした場合でも先送りされていた変換の記録ごと失われてしまい、
-  // 以降の保存・アクティブ化・deactivateのいずれからも二度と再試行されなくなる
+  // dirtyなまま書き換えると次の保存が「上書きに失敗しました」になる(issue #13。
+  // SAVE_CONVERSION_DEBOUNCE_MS参照)ため、deactivate時(convertsEvenIfDirty: true)
+  // 以外はガードする。deactivate後は保存が起きないため、スキップすると変換されない
+  // まま終了してしまう(hot exit有効時はdirtyなドキュメントが確認なしに保持されるため
+  // 実際に起こり得る)。
+  // pendingConversionsを削除する前に判定するのは、先に削除すると先送りされていた
+  // 変換の記録ごと失われ、以降のどのタイミングからも再試行されなくなるため
   if (!convertsEvenIfDirty && !document.isClosed && document.isDirty) {
     return;
   }
@@ -541,36 +485,29 @@ function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
  * 変換後のファイル状態をエディタ(VS Code本体)に同期する
  *
  * 拡張機能によるファイル書き換えはVS Codeが記録しているファイル状態(etag)に
- * 反映されないため、revertで再読込してetagを同期する。変換後のバイト列は
- * デコードすると変換前と同一のテキストになるため、revertしてもエディタの内容・
- * カーソル位置・undoスタックには影響しない(VS CodeのupdateModelは内容が
- * 同一の場合何もしない)
+ * 反映されないため、revertで再読込してetagを同期する。変換後のバイト列はデコードすると
+ * 変換前と同一のテキストになるため、revertしてもエディタの内容・カーソル位置・
+ * undoスタックには影響しない(VS CodeのupdateModelは内容が同一の場合何もしない)
  *
- * revertコマンドはアクティブエディタにしか作用しない。かつ、非アクティブな
- * 背景タブの非dirtyドキュメントはディスクを書き換えてもVS Codeのファイル
- * ウォッチャーによる自動再読込が働かない(実測で確認済み。15秒待っても
- * リロードされない)。そのためこの関数は「対象ドキュメントがアクティブかつ
- * 非dirty」の場合にのみ呼び出す前提としている(呼び出し元のrunScheduledConversion
- * を参照)。非アクティブな場合にetagを同期する手段は無いため、変換自体を
- * runScheduledConversionの時点で先送りする方針にしている
+ * revertコマンドはアクティブエディタにしか作用しない。かつ非アクティブな背景タブの
+ * 非dirtyドキュメントはディスクを書き換えてもVS Codeのファイルウォッチャーによる
+ * 自動再読込が働かない(実測で確認済み。15秒待ってもリロードされない)。そのためこの
+ * 関数は「対象ドキュメントがアクティブかつ非dirty」の場合にのみ呼び出す前提としている
+ * (呼び出し元のrunScheduledConversionを参照)。非アクティブな場合にetagを同期する
+ * 手段は無いため、変換自体をrunScheduledConversionの時点で先送りする方針にしている
  *
  * @param document 変換したファイルのドキュメント
  */
 async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
-  // dirtyなドキュメントをrevertすると編集内容が失われるため、
-  // アクティブエディタが対象ドキュメントかつdirtyでない場合のみ実行する
-  // (呼び出し元で既に確認済みだが、防御的に再確認する)。
+  // dirtyなドキュメントをrevertすると編集内容が失われるため、アクティブエディタが
+  // 対象ドキュメントかつdirtyでない場合のみ実行する(呼び出し元で確認済みだが再確認する)。
   //
-  // 既知の残余リスク(解消できていない): workbench.action.files.revertの
-  // コマンドハンドラの実装(VS Code 1.130.0のバンドルされたソースで確認)は
-  // ServicesAccessorのみを引数に取る関数であり、executeCommandの第2引数
-  // 以降は一切参照されない。対象はハンドラ実行時点の「アクティブなエディタ
-  // グループのアクティブエディタ」から解決される(エクスプローラの選択状態が
-  // 無い限り)。つまりdocument.uriのような引数を渡しても対象を固定する効果は
-  // 無く、このチェックからexecuteCommandがレンダラー側で実際に処理される
-  // までの間にユーザーがタブを切り替えた場合、無関係な別のドキュメントが
-  // revertされる(その未保存編集がforce:trueにより確認なしに失われる)余地が
-  // 理論上残っている。この窓を拡張機能のコードから閉じる手段はVS Codeの
+  // 既知の残余リスク(解消できていない): workbench.action.files.revertのコマンド
+  // ハンドラ(VS Code 1.130.0のバンドルされたソースで確認)はexecuteCommandの第2引数
+  // 以降を一切参照せず、対象は実行時点の「アクティブなエディタグループのアクティブ
+  // エディタ」から解決される。つまりこのチェックからexecuteCommandが実際に処理される
+  // までの間にユーザーがタブを切り替えると、無関係な別のドキュメントがrevertされ
+  // (force:trueにより未保存編集が確認なしに失われ)得る。この窓を閉じる手段はVS Codeの
   // 公開APIには無い(ドキュメントを指定してrevertするAPIが存在しないため)
   const activeDocument = vscode.window.activeTextEditor?.document;
   if (activeDocument !== document || document.isDirty) {
@@ -812,9 +749,6 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
     : "Wave Dash Unify is disabled";
 
   const count = countSpecificCharacters(activeEditor.document.getText());
-
-  // waveDashUnify.numeroSignToNumeroSignなどの設定にかかわらず、
-  // 対象文字の個数を表示する
 
   statusBarItem.text = format
     .replace("${statusIcon}", isEnabled ? "$(pass-filled)" : "$(error)")
