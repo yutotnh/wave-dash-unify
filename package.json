@@ -19,7 +19,7 @@
     "url": "https://github.com/yutotnh/wave-dash-unify.git"
   },
   "homepage": "https://github.com/yutotnh/wave-dash-unify",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "activationEvents": [
     "onStartupFinished"
   ],
