@@ -7,8 +7,10 @@ on:
     branches:
       - "main"
   release:
+    # createdはdraft releaseの作成時にも発火し、その後draftを公開してもpublishedしか
+    # 発火しないため、公開の瞬間を必ず拾えるpublishedを使う
     types:
-      - created
+      - published
 
 permissions:
   contents: write
