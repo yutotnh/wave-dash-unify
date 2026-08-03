@@ -12,6 +12,8 @@ or each release's GitHub Releases page for those.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-04
+
 ### Added
 
 - Open VSX Registryでの配布に対応しました。VSCodiumなど、Open VSXを利用するエディターにもインストールできるようになりました。([#642](https://github.com/yutotnh/wave-dash-unify/pull/642))
