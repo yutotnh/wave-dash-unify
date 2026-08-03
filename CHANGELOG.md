@@ -23,6 +23,7 @@ or each release's GitHub Releases page for those.
 - 変換処理を高速化し、大きなファイルを保存する際の遅延を大幅に軽減しました。([#627](https://github.com/yutotnh/wave-dash-unify/pull/627), [#633](https://github.com/yutotnh/wave-dash-unify/pull/633))
 - ステータスバーの文字数カウントの更新をデバウンスし、大きなファイルの編集中の負荷を軽減しました。([#632](https://github.com/yutotnh/wave-dash-unify/pull/632))
 - 対応するVS Codeの最小バージョンを1.100.0から1.66.0に引き下げ、古いVS Codeでも最新版を利用できるようにしました。0.4.0([#517](https://github.com/yutotnh/wave-dash-unify/pull/517))で必要になっていた1.100.0以降という制限を解消するもので、1.100.0以降では引き続きVS CodeのAPIでEUC-JPを判定します。([#661](https://github.com/yutotnh/wave-dash-unify/pull/661))
+- 拡張機能のアイコンを最適化し、パッケージサイズを削減しました。([#639](https://github.com/yutotnh/wave-dash-unify/pull/639))
 
 ### Fixed
 
