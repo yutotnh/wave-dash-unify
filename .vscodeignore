@@ -5,6 +5,8 @@
 out/**
 node_modules/**
 src/**
+doc/**
+!doc/icon.png
 .gitignore
 .npmrc
 webpack.config.js
@@ -18,3 +20,4 @@ webpack.config.js
 .claude/**
 AGENTS.md
 CLAUDE.md
+.dockerignore
