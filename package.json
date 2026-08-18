@@ -68,9 +68,11 @@
     "vscode:prepublish": "npm run package",
     "vscode:publish": "vsce publish --githubBranch v$npm_package_version",
     "vscode:publish-ovsx": "ovsx publish --baseContentUrl https://github.com/yutotnh/wave-dash-unify/blob/v$npm_package_version --baseImagesUrl https://github.com/yutotnh/wave-dash-unify/raw/v$npm_package_version",
-    "compile": "webpack",
-    "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "check-types": "tsc --noEmit",
+    "compile": "npm run check-types && node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch",
+    "package": "npm run check-types && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
@@ -91,6 +93,7 @@
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "cspell": "^10.0.1",
+    "esbuild": "^0.28.1",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-n": "^18.3.0",
@@ -98,10 +101,7 @@
     "ovsx": "^1.1.1",
     "prettier": "^3.5.3",
     "tmp": "^0.2.7",
-    "ts-loader": "^9.5.2",
-    "typescript": "^6.0.3",
-    "webpack": "^5.109.2",
-    "webpack-cli": "^7.2.2"
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "mocha": {

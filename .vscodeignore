@@ -9,8 +9,8 @@ doc/**
 !doc/icon.png
 .gitignore
 .npmrc
-webpack.config.js
-**/tsconfig.json
+esbuild.js
+**/tsconfig*.json
 **/eslint.config.js
 **/*.map
 **/*.ts
