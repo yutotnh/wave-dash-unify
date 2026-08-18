@@ -159,9 +159,9 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
  * (次に同じ調査をする人のために、理由を残す):
  *
  * - **deactivate経路**: `extension.ts`のmain(`package.json`)は`dist/extension.js`
- *   (webpackバンドル)を指しており、これがVS Codeに実際にactivateされるインスタンス。
+ *   (esbuildバンドル)を指しており、これがVS Codeに実際にactivateされるインスタンス。
  *   一方、このテストファイルが`import`する`extension`モジュールは`out/extension.js`
- *   (tscの出力)で、ソースは同じでもNode上は別のモジュールインスタンスになる。
+ *   (`compile-tests`用tscの出力)で、ソースは同じでもNode上は別のモジュールインスタンスになる。
  *   `pendingConversions`はモジュール内のプライベートな可変状態のため、テストから
  *   `extension.deactivate()`を呼んでも、実際に動いている拡張機能の`pendingConversions`
  *   (実イベントで積まれたもの)には一切触れられない

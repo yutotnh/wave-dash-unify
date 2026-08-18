@@ -2,7 +2,7 @@
 
 wave-dash-unifyは単一パッケージのTypeScript製VS Code拡張機能。本体コードは`src/`、テストは`src/test/suite/`。コマンドは`package.json`の`scripts`を参照する。変更後は最低限`npm run lint` / `format-check` / `spellcheck` / `test`を通す。
 
-既知の制約: サンドボックス環境ではネットワーク制限で`update.code.visualstudio.com`に到達できず、`npm test`(Electron版)がローカル実行できないことがある(#627, #654)。その場合は`tsc` / `eslint` / `webpack` / `prettier` / `cspell`のみローカルで検証し、テスト結果はCI(3 OSマトリクス)で確認する旨をPR本文に書く。
+既知の制約: サンドボックス環境ではネットワーク制限で`update.code.visualstudio.com`に到達できず、`npm test`(Electron版)がローカル実行できないことがある(#627, #654)。その場合は`tsc` / `eslint` / `esbuild` / `prettier` / `cspell`のみローカルで検証し、テスト結果はCI(3 OSマトリクス)で確認する旨をPR本文に書く。
 
 ## CHANGELOG.md
 
