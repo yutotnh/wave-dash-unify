@@ -94,7 +94,7 @@
     "@vscode/vsce": "^3.9.2",
     "cspell": "^10.1.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.9.0",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-n": "^18.3.0",
     "mocha": "^11.8.0",
