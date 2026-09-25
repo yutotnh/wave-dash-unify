@@ -89,7 +89,7 @@
     "@types/tmp": "^0.2.6",
     "@types/vscode": "1.66.0",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
-    "@typescript-eslint/parser": "^8.65.0",
+    "@typescript-eslint/parser": "^8.70.1",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^4.0.0",
     "cspell": "^10.3.3",
