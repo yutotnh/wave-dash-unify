@@ -31,13 +31,39 @@ jobs:
         if: runner.os == 'Linux'
       - run: npm test
         if: runner.os != 'Linux'
+      - name: Create package
+        run: npm run vscode:package
+
+  # Publishing is its own job so that only it runs in the release environment
+  # (v* tags only, holds AZURE_CLIENT_ID / AZURE_TENANT_ID); putting the
+  # environment on the matrix job above would block main and PR runs.
+  publish:
+    needs: test-and-publish
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write # for azure/login (OIDC)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ./.nvmrc
+      - run: npm install
+      # No PAT: Azure DevOps retires global PATs on 2026-12-01, so vsce signs
+      # in as a managed identity (a member of the publisher) through OIDC.
+      - name: Sign in to Microsoft Entra ID (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
       - name: Publish
-        if: success() && startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
-        run: npm run vscode:publish
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npm run vscode:publish -- --azure-credential
       - name: Publish to Open VSX
-        if: success() && startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         run: npm run vscode:publish-ovsx
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
@@ -45,7 +71,6 @@ jobs:
       - name: Create package
         run: npm run vscode:package
       - name: Release
-        if: success() && startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         uses: softprops/action-gh-release@v3
         with:
           files: wave-dash-unify-*.vsix
