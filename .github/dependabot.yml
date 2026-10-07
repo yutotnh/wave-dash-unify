@@ -38,14 +38,18 @@ updates:
       # 上げる時だけ一緒に上げる。
       - dependency-name: "@types/vscode"
 
-      # NOTE: mochaは意図的にignoreしていない。mochaはExtension Host内で動くため
-      # Node.jsのfloorは.nvmrcでなく最古対応VS Code(1.66.0がバンドルするElectron
-      # 17.2.0のNode.js v16.13.0)基準だが、mocha 11(#674)のengines.nodeは>=18.18で
-      # これを満たさない。ただしmochaはdist/に含まれないdevDependencyで、engines
-      # はインストール時の警告に過ぎない。ignoreはセキュリティ更新PRも止めてしまう
-      # ため、その代償の方が大きいと判断した。実行時の担保は
-      # `test-minimum-vscode-version` CI(1.66.0/1.100.0、3OS)。ここが赤くなったら
-      # 見直す。
+      # mochaはExtension Host内で動くため、Node.jsのfloorは.nvmrcでなく最古対応
+      # VS Code(1.66.0がバンドルするElectron 17.2.0のNode.js v16.13.0)基準になる。
+      # mocha 12はESM専用("type": "module")で、src/test/suite/index.tsからの
+      # require()がNode.js 16ではERR_REQUIRE_ESMになり、
+      # `test-minimum-vscode-version`の1.66.0が全OSで失敗した(#728で混入)。
+      # そのためメジャーのみignoreし、11.x系に留める(パッチ/マイナーのセキュリティ
+      # 更新は引き続き受け取る)。mocha 11のengines.nodeは>=18.18でfloorを満たさない
+      # が、devDependencyでありインストール時の警告に過ぎず、1.66.0で実際に動く
+      # ことはCIで確認している。engines.vscodeを上げてExtension HostのNode.jsが
+      # require(esm)に対応したら(Node.js 20.19以降)このルールを外す。
+      - dependency-name: "mocha"
+        update-types: ["version-update:semver-major"]
 
       # TypeScript 7(ネイティブ実装の"tsgo")は@typescript-eslintの対応バージョン
       # 上限(<6.1.0、canaryにも互換版が無い)を超えており、ts-loaderもネイティブ
