@@ -18,14 +18,14 @@ import { canBeEUCJP, isEUCJPConfirmed, isEUCJPDocument } from "./eucjp";
  * - 未保存の編集があるときにrevertすると編集が失われる
  *
  * そのため、アクティブかつ未編集のときだけ変換し、それ以外は先送りする。
- * 先送りしたものは、次の保存・アクティブ化・クローズ・deactivateで再判定する
+ * 先送りしたものは、次の保存・アクティブ化・クローズ・終了時(dispose)に再判定する
  */
 
 // 保存が続く間(Ctrl+S長押しなど)は書き換えず、落ち着いてから1回だけ変換する(ms)。
 // キーリピートの間隔(数十ms)より長く、人が次に保存するまでの間隔より短い経験値
 export const SAVE_CONVERSION_DEBOUNCE_MS = 300;
 
-type Trigger = "debounced" | "activated" | "closed" | "deactivate";
+type Trigger = "debounced" | "activated" | "closed" | "dispose";
 
 interface PendingConversion {
   document: vscode.TextDocument;
@@ -34,124 +34,129 @@ interface PendingConversion {
   postponed: boolean;
 }
 
-/** 変換待ちのドキュメント(キー: URI文字列) */
-const pending = new Map<string, PendingConversion>();
-
 /**
- * 保存されたドキュメントの変換を予約する
+ * 保存後の変換
  */
-export function scheduleConversion(document: vscode.TextDocument) {
-  if (document.uri.scheme !== "file") {
-    return;
-  }
-
-  if (!isConvertEnabled() || !canBeEUCJP(document)) {
-    return;
-  }
-
-  // 1.100.0未満はcanBeEUCJPが常にtrueなので、対象文字が無いファイルまで
-  // 予約してクローズ時にディスクを読まないよう、ここで足切りする
-  if (
-    isEUCJPDocument(document) === "unknown" &&
-    !containsConvertTargetCharacters(document)
-  ) {
-    return;
-  }
-
-  const key = document.uri.toString();
-  const entry = pending.get(key);
-
-  if (entry) {
-    entry.document = document;
-    entry.postponed = false;
-    entry.debouncer.schedule();
-    return;
-  }
-
-  const debouncer = createDebouncer(() => {
-    attempt(key, "debounced");
-  }, SAVE_CONVERSION_DEBOUNCE_MS);
-  pending.set(key, { document, debouncer, postponed: false });
-  debouncer.schedule();
+export interface SaveConverter {
+  /** 保存されたドキュメントの変換を予約する */
+  schedule: (document: vscode.TextDocument) => void;
+  /** アクティブになったドキュメントに先送り中の変換があれば再判定する */
+  resume: (document: vscode.TextDocument | undefined) => void;
+  /**
+   * 閉じられたドキュメントに変換待ちがあれば変換する
+   *
+   * onDidCloseTextDocumentはタブを閉じても発火するとは限らない(APIドキュメントに明記)。
+   * そのため、破棄されるかdisposeされるまで変換待ちのまま残ることがある
+   */
+  convertOnClose: (document: vscode.TextDocument) => void;
+  /** 変換待ちをすべて変換する。以降は保存が起きないので、未保存の編集があっても変換する */
+  dispose: () => void;
 }
 
-/**
- * アクティブになったドキュメントに先送り中の変換があれば再判定する
- */
-export function resumeConversion(document: vscode.TextDocument | undefined) {
-  if (document) {
-    attempt(document.uri.toString(), "activated");
+export function createSaveConverter(): SaveConverter {
+  /** 変換待ちのドキュメント(キー: URI文字列) */
+  const pending = new Map<string, PendingConversion>();
+
+  function schedule(document: vscode.TextDocument) {
+    if (document.uri.scheme !== "file") {
+      return;
+    }
+
+    if (!isConvertEnabled() || !canBeEUCJP(document)) {
+      return;
+    }
+
+    // 1.100.0未満はcanBeEUCJPが常にtrueなので、対象文字が無いファイルまで
+    // 予約してクローズ時にディスクを読まないよう、ここで足切りする
+    if (
+      isEUCJPDocument(document) === "unknown" &&
+      !containsConvertTargetCharacters(document)
+    ) {
+      return;
+    }
+
+    const key = document.uri.toString();
+    const entry = pending.get(key);
+
+    if (entry) {
+      entry.document = document;
+      entry.postponed = false;
+      entry.debouncer.schedule();
+      return;
+    }
+
+    const debouncer = createDebouncer(() => {
+      attempt(key, "debounced");
+    }, SAVE_CONVERSION_DEBOUNCE_MS);
+    pending.set(key, { document, debouncer, postponed: false });
+    debouncer.schedule();
   }
-}
 
-/**
- * 閉じられたドキュメントに変換待ちがあれば変換する
- *
- * onDidCloseTextDocumentはタブを閉じても発火するとは限らない(APIドキュメントに明記)。
- * そのため、破棄されるかdeactivateされるまで変換待ちのまま残ることがある
- */
-export function convertOnClose(document: vscode.TextDocument) {
-  attempt(document.uri.toString(), "closed");
-}
+  /**
+   * 変換してよいかを判定し、よければ変換する
+   *
+   * | 状態                 | 動作                       |
+   * | -------------------- | -------------------------- |
+   * | アクティブかつ未編集 | 変換してrevertで同期する   |
+   * | 破棄済み             | 変換する(同期は不要)     |
+   * | dispose中            | 変換する(同期は可能なら) |
+   * | それ以外             | 先送りする                 |
+   */
+  function attempt(key: string, trigger: Trigger) {
+    const entry = pending.get(key);
+    if (!entry) {
+      return;
+    }
 
-/**
- * 変換待ちをすべて変換する(deactivate用)
- *
- * 以降は保存が起きないので、未保存の編集があっても変換する
- */
-export function convertAllPending() {
-  for (const key of [...pending.keys()]) {
-    // 1件の失敗(ファイルが外部で消された場合など)で残りを止めない
-    try {
-      attempt(key, "deactivate");
-    } catch {
-      // 終了処理中なので、これ以上できることはない
+    // 保存直後の待機中は、待機の満了時に判定する
+    if (trigger === "activated" && !entry.postponed) {
+      return;
+    }
+
+    const { document } = entry;
+    const canSync =
+      !document.isClosed &&
+      !document.isDirty &&
+      vscode.window.activeTextEditor?.document === document;
+    const mustConvertNow = document.isClosed || trigger === "dispose";
+
+    if (!canSync && !mustConvertNow) {
+      entry.postponed = true;
+      return;
+    }
+
+    entry.debouncer.cancel();
+    pending.delete(key);
+
+    // 未編集ならテキストは保存内容と同じなので、テキストで足切りできる
+    const written = convertFile(document, canSync);
+
+    if (written) {
+      void syncEditorWithConvertedFile(document);
     }
   }
-}
 
-/**
- * 変換してよいかを判定し、よければ変換する
- *
- * | 状態                       | 動作                       |
- * | -------------------------- | -------------------------- |
- * | アクティブかつ未編集       | 変換してrevertで同期する   |
- * | 破棄済み                   | 変換する(同期は不要)     |
- * | deactivate中               | 変換する(同期は可能なら) |
- * | それ以外                   | 先送りする                 |
- */
-function attempt(key: string, trigger: Trigger) {
-  const entry = pending.get(key);
-  if (!entry) {
-    return;
-  }
-
-  // 保存直後の待機中は、待機の満了時に判定する
-  if (trigger === "activated" && !entry.postponed) {
-    return;
-  }
-
-  const { document } = entry;
-  const canSync =
-    !document.isClosed &&
-    !document.isDirty &&
-    vscode.window.activeTextEditor?.document === document;
-  const mustConvertNow = document.isClosed || trigger === "deactivate";
-
-  if (!canSync && !mustConvertNow) {
-    entry.postponed = true;
-    return;
-  }
-
-  entry.debouncer.cancel();
-  pending.delete(key);
-
-  // 未編集ならテキストは保存内容と同じなので、テキストで足切りできる
-  const written = convertFile(document, canSync);
-
-  if (written) {
-    void syncEditorWithConvertedFile(document);
-  }
+  return {
+    schedule,
+    resume: (document) => {
+      if (document) {
+        attempt(document.uri.toString(), "activated");
+      }
+    },
+    convertOnClose: (document) => {
+      attempt(document.uri.toString(), "closed");
+    },
+    dispose: () => {
+      for (const key of [...pending.keys()]) {
+        // 1件の失敗(ファイルが外部で消された場合など)で残りを止めない
+        try {
+          attempt(key, "dispose");
+        } catch {
+          // 終了処理中なので、これ以上できることはない
+        }
+      }
+    },
+  };
 }
 
 /**
