@@ -1,5 +1,6 @@
 import * as assert from "assert";
-import * as extension from "../../extension";
+import { CHARS } from "../../eucjp";
+import { renderStatusText } from "../../statusBar";
 import {
   decodeBytes,
   encodeText,
@@ -37,10 +38,8 @@ suite("EUC-JP encoding invariants", () => {
   // EUC-JPにおける全角チルダのバイト列(3バイトのSS3領域)
   const FULLWIDTH_TILDE_BYTES = Uint8Array.from([0x8f, 0xa2, 0xb7]);
 
-  const WAVE_DASH = String.fromCodePoint(extension.WAVEDASH_CODE_POINT);
-  const FULLWIDTH_TILDE = String.fromCodePoint(
-    extension.FULLWIDTH_TILDE_CODE_POINT,
-  );
+  const WAVE_DASH = CHARS.waveDash;
+  const FULLWIDTH_TILDE = CHARS.fullwidthTilde;
 
   const decodeEucjp = (bytes: Uint8Array): Thenable<string> =>
     decodeBytes(bytes, "eucjp");
@@ -105,7 +104,7 @@ suite("EUC-JP encoding invariants", () => {
     );
   });
 
-  test("EUC-JPファイル由来のテキストではcountSpecificCharactersの波ダッシュ分は常に0件になる", async () => {
+  test("EUC-JPファイル由来のテキストではcountTargetCharactersの波ダッシュ分は常に0件になる", async () => {
     // 波ダッシュのバイト列と全角チルダのバイト列を混在させた
     // EUC-JPファイル相当のバイト列を用意する
     const bytes = Uint8Array.from([
@@ -122,19 +121,20 @@ suite("EUC-JP encoding invariants", () => {
       `デコード結果にU+301Cが含まれている: ${JSON.stringify(decoded)}`,
     );
 
-    const count = extension.countSpecificCharacters(decoded);
+    const count = Number(
+      renderStatusText("${waveDashAndFullwidthTildeCount}", true, decoded),
+    );
 
-    // 3文字すべてがU+FF5Eとしてカウントされる。
-    // つまりcountSpecificCharactersのWAVE_DASH_CHAR分の寄与は0件であり、
-    // EUC-JPのファイルに対しては実質デッドコードになっている
+    // 3文字すべてがU+FF5Eとして数えられる。EUC-JPのファイルでは
+    // 波ダッシュ(U+301C)の分は常に0件になる
     assert.strictEqual(
-      count.waveDashAndFullwidthTilde,
+      count,
       3,
       "全角チルダとしてのカウントが期待値と一致しなかった",
     );
     assert.strictEqual(
       (decoded.match(new RegExp(FULLWIDTH_TILDE, "g")) ?? []).length,
-      count.waveDashAndFullwidthTilde,
+      count,
       "カウント結果が全角チルダの出現回数と一致しなかった(波ダッシュ分が加算されている)",
     );
   });

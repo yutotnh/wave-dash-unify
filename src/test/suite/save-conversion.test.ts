@@ -1,5 +1,6 @@
 import * as assert from "assert";
-import * as extension from "../../extension";
+import { CHARS } from "../../eucjp";
+import { SAVE_DEBOUNCE_MS } from "../../saveConverter";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as vscode from "vscode";
@@ -70,7 +71,7 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
     // テストの前提: ファイルがEUC-JPと判定されていること
     assertDecodedAsEucjp(
       document,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + CHARS.fullwidthTilde,
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
@@ -145,12 +146,12 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
  * https://github.com/yutotnh/wave-dash-unify/issues/13
  *
  * 保存後の変換はデバウンスされ、かつドキュメントがdirtyの間は先送りされる
- * (runScheduledConversionのisDirtyチェック)。この「先送りされたまま」の状態から、
- * dirtyのまま次の保存が行われた場合(runScheduledConversionの再スケジュール)に
+ * (attemptのisDirtyチェック)。この「先送りされたまま」の状態から、
+ * dirtyのまま次の保存が行われた場合(attemptの再スケジュール)に
  * 変換が実行されることを確認する。
  *
  * 素朴に「保存 -> すぐに経路を発火 -> 変換を確認」と書くと、
- * SAVE_CONVERSION_DEBOUNCE_MSのタイマーが経路の発火より先に発火して
+ * SAVE_DEBOUNCE_MSのタイマーが経路の発火より先に発火して
  * 変換されただけでもテストが通ってしまい、対象の経路を検証したことにならない。
  * そのため、保存直後にドキュメントをdirtyにしてタイマーを先送りさせ、
  * 「まだ変換されていないこと」を確認してから対象の経路を発火させている。
@@ -162,8 +163,8 @@ suite("Issue #13: 保存後のファイル書き換えによる連続保存の�
  *   (esbuildバンドル)を指しており、これがVS Codeに実際にactivateされるインスタンス。
  *   一方、このテストファイルが`import`する`extension`モジュールは`out/extension.js`
  *   (`compile-tests`用tscの出力)で、ソースは同じでもNode上は別のモジュールインスタンスになる。
- *   `pendingConversions`はモジュール内のプライベートな可変状態のため、テストから
- *   `extension.deactivate()`を呼んでも、実際に動いている拡張機能の`pendingConversions`
+ *   `pending`はモジュール内のプライベートな可変状態のため、テストから
+ *   `extension.deactivate()`を呼んでも、実際に動いている拡張機能の`pending`
  *   (実イベントで積まれたもの)には一切触れられない
  *   (`require("../../../dist/extension")`で同一の絶対パスを直接requireしてみても、
  *   VS Codeの拡張ホストは独自のモジュールローダーを使っておりNodeの標準的な
@@ -205,8 +206,8 @@ suite("保存後変換のデバウンス: 待機中に中断された場合", ()
    * 経由で変換が確実にスケジュールされる。
    *
    * その直後にすぐ"b"を挿入してdirtyにすることで、タイマー発火時に
-   * runScheduledConversionが変換を先送りする(pendingConversionsにtimer:
-   * undefinedのまま残る)。先送りが効いている(="a"までの内容のまま変換されて
+   * attemptが変換を先送りする(pendingにpostponed: true
+   * で残る)。先送りが効いている(="a"までの内容のまま変換されて
    * いないこと)を確認してから返す。
    *
    * @returns tmpFile: 一時ファイル, document: 開いたドキュメント, textEditor: 表示したエディタ
@@ -251,13 +252,13 @@ suite("保存後変換のデバウンス: 待機中に中断された場合", ()
     // テストの前提: ファイルがEUC-JPと判定されていること
     assertDecodedAsEucjp(
       document,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + CHARS.fullwidthTilde,
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
     // "a"を挿入してdirtyにしてから保存する。これにより実際にディスクへ書き込まれ、
     // onDidSaveTextDocument経由で変換が確実にスケジュールされる
-    // (SAVE_CONVERSION_DEBOUNCE_MS後に実行される予定)
+    // (SAVE_DEBOUNCE_MS後に実行される予定)
     await textEditor.edit((editBuilder) => {
       const lastLine = document.lineCount - 1;
       const lastLineLength = document.lineAt(lastLine).text.length;
@@ -265,8 +266,8 @@ suite("保存後変換のデバウンス: 待機中に中断された場合", ()
     });
     await document.save();
 
-    // すぐに"b"を挿入してdirtyにする。これによりタイマー発火時にrunScheduledConversionが
-    // isDirtyを見て変換を先送りする(pendingConversionsにtimer: undefinedのまま残る)
+    // すぐに"b"を挿入してdirtyにする。これによりタイマー発火時にattemptが
+    // isDirtyを見て変換を先送りする(pendingにpostponed: trueで残る)
     await textEditor.edit((editBuilder) => {
       const lastLine = document.lineCount - 1;
       const lastLineLength = document.lineAt(lastLine).text.length;
@@ -275,7 +276,7 @@ suite("保存後変換のデバウンス: 待機中に中断された場合", ()
 
     // デバウンスタイマーが発火し、先送り判定が行われるまで待つ
     await new Promise((resolve) =>
-      setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+      setTimeout(resolve, SAVE_DEBOUNCE_MS * 2 + 100),
     );
 
     // 先送りが効いていること(="a"までの内容のまま、まだ変換されていないこと)を
@@ -343,7 +344,7 @@ suite("保存後変換のデバウンス: 待機中に中断された場合", ()
  * 想定は実測で否定された(背景タブの非dirtyドキュメントは15秒待ってもリロードされない)。
  *
  * 再設計では、非アクティブなドキュメントへの変換自体を先送りし
- * (runScheduledConversionの3)、アクティブに戻った時に再開する
+ * (attemptの判定)、アクティブに戻った時に再開する
  * (onDidChangeActiveTextEditor -> resumePendingConversionIfActive)ことで
  * この再発経路を塞いだ。このテストはその両方を検証する:
  *
@@ -398,7 +399,7 @@ suite("issue #13 (C-1): 非アクティブなエディタでの再発防止", ()
     // テストの前提: ファイルがEUC-JPと判定されていること
     assertDecodedAsEucjp(
       document,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + CHARS.fullwidthTilde,
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
@@ -422,7 +423,7 @@ suite("issue #13 (C-1): 非アクティブなエディタでの再発防止", ()
 
     // 3. デバウンスが発火するのに十分な時間待つ
     await new Promise((resolve) =>
-      setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+      setTimeout(resolve, SAVE_DEBOUNCE_MS * 2 + 100),
     );
 
     // 4. 非アクティブなため先送りされ、ディスクはまだ変換されていないはず
@@ -472,7 +473,7 @@ suite("issue #13 (C-1): 非アクティブなエディタでの再発防止", ()
     // 判定ではなく、onDidChangeActiveTextEditorでの再開(resumePendingConversionIfActive)
     // 経由で行われることを保証する
     await new Promise((resolve) =>
-      setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+      setTimeout(resolve, SAVE_DEBOUNCE_MS * 2 + 100),
     );
 
     const expectedStillPending = Buffer.concat([
