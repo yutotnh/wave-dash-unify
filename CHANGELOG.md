@@ -14,11 +14,11 @@ or each release's GitHub Releases page for those.
 
 ### Added
 
-- ステータスバーの項目にIDを付け、ステータスバーの右クリックメニューからこの項目だけを非表示にできるようにしました。
+- ステータスバーの項目にIDを付け、ステータスバーの右クリックメニューからこの項目だけを非表示にできるようにしました。([#814](https://github.com/yutotnh/wave-dash-unify/pull/814))
 
 ### Changed
 
-- ステータスバーの項目をクリックすると、選択肢を出さずにすぐ変換の有効/無効が切り替わるようにしました。
+- ステータスバーの項目をクリックすると、選択肢を出さずにすぐ変換の有効/無効が切り替わるようにしました。([#814](https://github.com/yutotnh/wave-dash-unify/pull/814))
 
 ### Fixed
 
