@@ -750,13 +750,14 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
 
   const count = countSpecificCharacters(activeEditor.document.getText());
 
+  // 同じ変数を複数回書いた場合もすべて置換するため、replaceではなくreplaceAllを使う
   statusBarItem.text = format
-    .replace("${statusIcon}", isEnabled ? "$(pass-filled)" : "$(error)")
-    .replace(
+    .replaceAll("${statusIcon}", isEnabled ? "$(pass-filled)" : "$(error)")
+    .replaceAll(
       "${waveDashAndFullwidthTildeCount}",
       count.waveDashAndFullwidthTilde.toString(),
     )
-    .replace("${numeroSignCount}", count.numeroSign.toString());
+    .replaceAll("${numeroSignCount}", count.numeroSign.toString());
 }
 
 export function deactivate() {
