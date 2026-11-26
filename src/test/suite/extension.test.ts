@@ -344,7 +344,7 @@ suite("Extension Test Suite", () => {
     );
     assert.strictEqual(
       eucjp.isEUCJPDocument(eucjpDocument),
-      true,
+      "eucjp",
       `document: ${eucjpDocument.getText()}`,
     );
 
@@ -354,7 +354,7 @@ suite("Extension Test Suite", () => {
     );
     assert.strictEqual(
       eucjp.isEUCJPDocument(notEucjpDocument),
-      false,
+      "other",
       `document: ${notEucjpDocument.getText()}`,
     );
   });

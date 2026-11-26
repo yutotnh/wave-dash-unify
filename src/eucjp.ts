@@ -28,7 +28,7 @@ const SS2 = 0x8e;
 const SS3 = 0x8f;
 
 /** `"unknown"`はバイト列を見ないと判定できないこと(1.100.0未満のみ)を表す */
-export type EucjpVerdict = true | false | "unknown";
+export type EucjpVerdict = "eucjp" | "other" | "unknown";
 
 /** byteがlo〜hiの範囲内か(範囲外の添字でundefinedなら`false`) */
 function inRange(byte: number | undefined, lo: number, hi: number): boolean {
@@ -101,7 +101,9 @@ export function isEUCJPDocument(document: vscode.TextDocument): EucjpVerdict {
     return "unknown";
   }
 
-  return (document as DocumentWithEncoding).encoding === EUCJP_ENCODING_ID;
+  return (document as DocumentWithEncoding).encoding === EUCJP_ENCODING_ID
+    ? "eucjp"
+    : "other";
 }
 
 /**
@@ -110,7 +112,7 @@ export function isEUCJPDocument(document: vscode.TextDocument): EucjpVerdict {
  * 1.100.0未満では常に`true`。書き換えてよいかの判断にはisEUCJPConfirmedを使う
  */
 export function canBeEUCJP(document: vscode.TextDocument): boolean {
-  return isEUCJPDocument(document) !== false;
+  return isEUCJPDocument(document) !== "other";
 }
 
 /**
@@ -127,5 +129,5 @@ export function isEUCJPConfirmed(
 ): boolean {
   const verdict = isEUCJPDocument(document);
 
-  return verdict === "unknown" ? isEUCJPBuffer(content) : verdict;
+  return verdict === "unknown" ? isEUCJPBuffer(content) : verdict === "eucjp";
 }
