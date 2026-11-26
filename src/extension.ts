@@ -3,8 +3,13 @@ import * as fs from "fs";
 import { createDebouncer, Debouncer } from "./debounce";
 import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
 import {
-  CONVERT_TARGETS,
-  ConvertTarget,
+  CONFIG_SECTION,
+  getEnabledTargets,
+  getStatusBarFormat,
+  isConvertEnabled,
+  setConvertEnabled,
+} from "./config";
+import {
   containsTargetCharacters,
   convertBytes,
   countSpecificCharacters,
@@ -18,6 +23,7 @@ export {
   WAVEDASH_CODE_POINT,
   countSpecificCharacters,
 } from "./convert";
+export { isConvertEnabled } from "./config";
 
 // ステータスバー更新のデバウンス時間(ms)。キーストロークのたびに全文スキャンが
 // 走らないよう、この時間内の連続更新要求を1回にまとめる
@@ -64,24 +70,23 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.Disposable.from(
-      vscode.commands.registerCommand(
-        "waveDashUnify.enableConvert",
-        async () => {
-          await vscode.workspace
-            .getConfiguration("waveDashUnify")
-            .update("enableConvert", true, true);
-
-          updateStatusBarItem(statusBarItem);
-        },
+      vscode.commands.registerCommand("waveDashUnify.enableConvert", () =>
+        setEnabledAndUpdateStatusBar(true),
+      ),
+      vscode.commands.registerCommand("waveDashUnify.disableConvert", () =>
+        setEnabledAndUpdateStatusBar(false),
       ),
       vscode.commands.registerCommand(
-        "waveDashUnify.disableConvert",
+        "waveDashUnify.SelectEnableOrDisable",
         async () => {
-          await vscode.workspace
-            .getConfiguration("waveDashUnify")
-            .update("enableConvert", false, true);
+          const picked = await vscode.window.showQuickPick([
+            { label: "Enable convert", enabled: true },
+            { label: "Disable convert", enabled: false },
+          ]);
 
-          updateStatusBarItem(statusBarItem);
+          if (picked) {
+            await setEnabledAndUpdateStatusBar(picked.enabled);
+          }
         },
       ),
       // ファイルを保存した時に、EUC-JPのファイルの全角チルダを波ダッシュに変換する
@@ -112,57 +117,19 @@ export function activate(context: vscode.ExtensionContext) {
         statusBarUpdateDebouncer.schedule();
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (!e.affectsConfiguration("waveDashUnify")) {
+        if (!e.affectsConfiguration(CONFIG_SECTION)) {
           return;
         }
 
         updateStatusBarItem(statusBarItem);
       }),
-
-      vscode.commands.registerCommand(
-        "waveDashUnify.SelectEnableOrDisable",
-        () => {
-          const quickPick = vscode.window.createQuickPick();
-          quickPick.items = [
-            {
-              label: "Enable convert",
-              description: "Enable convert",
-            },
-            {
-              label: "Disable convert",
-              description: "Disable convert",
-            },
-          ];
-
-          quickPick.onDidChangeSelection((selection) => {
-            if (selection.length === 0) {
-              return;
-            }
-
-            const selectedItem = selection[0];
-
-            if (selectedItem === undefined) {
-              return;
-            }
-
-            if (selectedItem.label === "Enable convert") {
-              vscode.commands.executeCommand("waveDashUnify.enableConvert");
-            } else if (selectedItem.label === "Disable convert") {
-              vscode.commands.executeCommand("waveDashUnify.disableConvert");
-            }
-
-            quickPick.hide();
-          });
-
-          quickPick.onDidHide(() => {
-            quickPick.dispose();
-          });
-
-          quickPick.show();
-        },
-      ),
     ),
   );
+}
+
+async function setEnabledAndUpdateStatusBar(enabled: boolean) {
+  await setConvertEnabled(enabled);
+  updateStatusBarItem(statusBarItem);
 }
 
 /**
@@ -493,22 +460,6 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
 }
 
 /**
- * 設定で変換が有効になっている変換対象を返す
- *
- * containsConvertTargetCharactersとreplaceSpecificCharactersInBufferの
- * 両方で同じ設定を読むため、読み込み処理を共通化する
- *
- * @returns 有効な変換対象の一覧(すべて無効なら空配列)
- */
-function getConvertTargetConfig(): ConvertTarget[] {
-  const config = vscode.workspace.getConfiguration("waveDashUnify");
-
-  return CONVERT_TARGETS.filter(
-    (target) => config.get<boolean>(target.configKey) === true,
-  );
-}
-
-/**
  * ドキュメントに変換対象文字(CONVERT_TARGETSのchar)が含まれるかを判定する
  *
  * 設定で変換が無効化されている文字は判定対象に含めない
@@ -522,27 +473,13 @@ function getConvertTargetConfig(): ConvertTarget[] {
 export function containsConvertTargetCharacters(
   document: vscode.TextDocument,
 ): boolean {
-  const targets = getConvertTargetConfig();
+  const targets = getEnabledTargets();
 
   if (targets.length === 0) {
     return false;
   }
 
   return containsTargetCharacters(document.getText(), targets);
-}
-
-/**
- * 拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値を返す
- *
- * @returns `true`: 拡張機能の動作が有効, `false`: 拡張機能の動作が無効
- */
-export function isConvertEnabled(): boolean {
-  const config = vscode.workspace.getConfiguration("waveDashUnify");
-  const enabled = config.get<boolean>("enableConvert");
-
-  // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
-  // 型のためだけの分岐で、到達したら安全側(変換しない)に倒す
-  return enabled ?? false;
 }
 
 /**
@@ -555,7 +492,7 @@ export function isConvertEnabled(): boolean {
  * @returns 変換後のバッファ(変換対象が1つも無ければ引数のバッファそのもの)
  */
 export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
-  return convertBytes(str, getConvertTargetConfig());
+  return convertBytes(str, getEnabledTargets());
 }
 
 /**
@@ -580,8 +517,7 @@ export function setupStatusBarItem() {
 export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   const activeEditor = vscode.window.activeTextEditor;
 
-  const config = vscode.workspace.getConfiguration("waveDashUnify");
-  const format = config.get<string>("statusBarFormat");
+  const format = getStatusBarFormat();
   // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
   // 型のためだけの分岐で、ここに到達したらステータスバーの更新自体を諦める
   if (format === undefined) {
