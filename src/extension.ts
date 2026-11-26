@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import { createDebouncer, Debouncer } from "./debounce";
-import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
+import { canBeEUCJP, isEUCJPConfirmed, isEUCJPDocument } from "./eucjp";
 import {
   CONFIG_SECTION,
   getEnabledTargets,
@@ -237,7 +237,7 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
   // #627 / #633で削った全文走査を完全には消せておらず、大きなファイルの保存時には
   // この分の遅延が残る(ディスクを読む前に使える判定材料が他に無いため許容している)
   if (
-    needsBytesToDecideEUCJP(document) &&
+    isEUCJPDocument(document) === "unknown" &&
     !containsConvertTargetCharacters(document)
   ) {
     return;
