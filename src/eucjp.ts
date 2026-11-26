@@ -143,15 +143,6 @@ export function isEUCJPDocument(document: vscode.TextDocument): EucjpVerdict {
 }
 
 /**
- * EUC-JPかを確定するのにディスク上のバイト列が要るか
- */
-export function needsBytesToDecideEUCJP(
-  document: vscode.TextDocument,
-): boolean {
-  return isEUCJPDocument(document) === "unknown";
-}
-
-/**
  * EUC-JPの可能性があるか(ディスクを読む前の足切り用)
  *
  * 1.100.0未満では常に`true`。書き換えてよいかの判断にはisEUCJPConfirmedを使う
