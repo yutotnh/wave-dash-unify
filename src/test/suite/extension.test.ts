@@ -1070,6 +1070,19 @@ suite("Extension Test Suite", () => {
       "statusBarFormat: custom",
     );
 
+    // 同じ変数を複数回書いても、すべて置換されることを確認する
+    await config.update(
+      "statusBarFormat",
+      "${numeroSignCount}/${numeroSignCount} ${statusIcon}${statusIcon}",
+      vscode.ConfigurationTarget.Global,
+    );
+    extension.updateStatusBarItem(statusBarItem);
+    assert.strictEqual(
+      statusBarItem.text,
+      `${numeroSignCount.toString()}/${numeroSignCount.toString()} $(pass-filled)$(pass-filled)`,
+      "statusBarFormat: repeated variables",
+    );
+
     vscode.window.showQuickPick(["OK"], {
       placeHolder: "Please check the status bar",
     });
