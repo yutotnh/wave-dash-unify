@@ -10,7 +10,7 @@ import * as vscode from "vscode";
  * - 1.100.0未満: `encoding`が無いので、ディスク上のバイト列を構造的に検査する
  *
  * 分岐はバージョン番号ではなくAPIの有無で行う。engines.vscodeを1.100.0以上に
- * 上げるときは、isEUCJPBufferと"unknown"の分岐を消せばよい
+ * 上げるときは、isEucJpBufferと"unknown"の分岐を消せばよい
  */
 
 /** `encoding`(1.100.0で追加)は@types/vscode 1.66.0に無いので、型をここで補う */
@@ -19,7 +19,7 @@ type DocumentWithEncoding = vscode.TextDocument & {
 };
 
 /** VS CodeがEUC-JPに使うエンコーディングID */
-const EUCJP_ENCODING_ID = "eucjp";
+const EUC_JP_ENCODING_ID = "eucjp";
 
 /** SS2: 半角カナ1文字を導入する */
 const SS2 = 0x8e;
@@ -28,7 +28,7 @@ const SS2 = 0x8e;
 const SS3 = 0x8f;
 
 /** `"unknown"`はバイト列を見ないと判定できないこと(1.100.0未満のみ)を表す */
-export type EucjpVerdict = "eucjp" | "other" | "unknown";
+export type EucJpVerdict = "eucjp" | "other" | "unknown";
 
 /** byteがlo〜hiの範囲内か(範囲外の添字でundefinedなら`false`) */
 function inRange(byte: number | undefined, lo: number, hi: number): boolean {
@@ -58,7 +58,7 @@ function inRange(byte: number | undefined, lo: number, hi: number): boolean {
  *
  * @param buffer 判定するバイト列
  */
-export function isEUCJPBuffer(buffer: Buffer): boolean {
+export function isEucJpBuffer(buffer: Buffer): boolean {
   let i = 0;
 
   while (i < buffer.length) {
@@ -94,14 +94,14 @@ export function isEUCJPBuffer(buffer: Buffer): boolean {
  * @param document 判定するドキュメント
  * @returns 1.100.0未満では`"unknown"`
  */
-export function isEUCJPDocument(document: vscode.TextDocument): EucjpVerdict {
+export function getEucJpVerdict(document: vscode.TextDocument): EucJpVerdict {
   // 値ではなくプロパティの有無で分岐する。APIがあるのに値が取れない場合まで
   // バイト列の推定(誤判定しうる側)に回さず、変換しない側に倒すため
   if (!("encoding" in document)) {
     return "unknown";
   }
 
-  return (document as DocumentWithEncoding).encoding === EUCJP_ENCODING_ID
+  return (document as DocumentWithEncoding).encoding === EUC_JP_ENCODING_ID
     ? "eucjp"
     : "other";
 }
@@ -109,10 +109,10 @@ export function isEUCJPDocument(document: vscode.TextDocument): EucjpVerdict {
 /**
  * EUC-JPの可能性があるか(ディスクを読む前の足切り用)
  *
- * 1.100.0未満では常に`true`。書き換えてよいかの判断にはisEUCJPConfirmedを使う
+ * 1.100.0未満では常に`true`。書き換えてよいかの判断にはisEucJpConfirmedを使う
  */
-export function canBeEUCJP(document: vscode.TextDocument): boolean {
-  return isEUCJPDocument(document) !== "other";
+export function canBeEucJp(document: vscode.TextDocument): boolean {
+  return getEucJpVerdict(document) !== "other";
 }
 
 /**
@@ -123,11 +123,11 @@ export function canBeEUCJP(document: vscode.TextDocument): boolean {
  * @param document 判定するドキュメント
  * @param content ディスクから読んだバイト列
  */
-export function isEUCJPConfirmed(
+export function isEucJpConfirmed(
   document: vscode.TextDocument,
   content: Buffer,
 ): boolean {
-  const verdict = isEUCJPDocument(document);
+  const verdict = getEucJpVerdict(document);
 
-  return verdict === "unknown" ? isEUCJPBuffer(content) : verdict === "eucjp";
+  return verdict === "unknown" ? isEucJpBuffer(content) : verdict === "eucjp";
 }

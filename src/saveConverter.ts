@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { getEnabledTargets, isConvertEnabled } from "./config";
 import { containsTargetCharacters, convertBytes } from "./convert";
 import { createDebouncer, Debouncer } from "./debounce";
-import { canBeEUCJP, isEUCJPConfirmed, isEUCJPDocument } from "./eucjp";
+import { canBeEucJp, isEucJpConfirmed, getEucJpVerdict } from "./eucjp";
 
 /**
  * 保存後の変換
@@ -62,15 +62,15 @@ export function createSaveConverter(): SaveConverter {
       return;
     }
 
-    if (!isConvertEnabled() || !canBeEUCJP(document)) {
+    if (!isConvertEnabled() || !canBeEucJp(document)) {
       return;
     }
 
-    // 1.100.0未満はcanBeEUCJPが常にtrueなので、対象文字が無いファイルまで
+    // 1.100.0未満はcanBeEucJpが常にtrueなので、対象文字が無いファイルまで
     // 予約してクローズ時にディスクを読まないよう、ここで足切りする
     if (
-      isEUCJPDocument(document) === "unknown" &&
-      !containsConvertTargetCharacters(document)
+      getEucJpVerdict(document) === "unknown" &&
+      !containsEnabledTargets(document)
     ) {
       return;
     }
@@ -164,9 +164,7 @@ export function createSaveConverter(): SaveConverter {
  *
  * @returns `true`: ファイルを書き換えた
  */
-export function replaceSpecificCharacters(
-  document: vscode.TextDocument,
-): boolean {
+export function convertSavedDocument(document: vscode.TextDocument): boolean {
   return convertFile(document, true);
 }
 
@@ -183,19 +181,19 @@ function convertFile(
   textIsSaved: boolean,
 ): boolean {
   // 予約後に設定やエンコーディングが変わっていることがあるので、毎回確認する
-  if (!isConvertEnabled() || !canBeEUCJP(document)) {
+  if (!isConvertEnabled() || !canBeEucJp(document)) {
     return false;
   }
 
   // 0x8F 0xA2 0xB7 / 0x8F 0xA2 0xF1を生むのはU+FF5E / U+2116だけなので、
   // テキストにそれらが無ければディスクにも変換対象は無い
-  if (textIsSaved && !containsConvertTargetCharacters(document)) {
+  if (textIsSaved && !containsEnabledTargets(document)) {
     return false;
   }
 
   const fileName = document.fileName;
   const content = fs.readFileSync(fileName);
-  const converted = replaceSpecificCharactersInBuffer(content);
+  const converted = convertBytesByConfig(content);
 
   // convertBytesは変換対象が無いときだけ同じBufferを返すので、参照の比較で足りる
   if (converted === content) {
@@ -205,7 +203,7 @@ function convertFile(
   // 1.100.0未満ではここでファイル全体を走査するため、置換の後に置いて
   // 変換対象の無いファイルでは走査しないようにしている。
   // 置換はcontentを書き換えないので、この順序でも安全性は変わらない
-  if (!isEUCJPConfirmed(document, content)) {
+  if (!isEucJpConfirmed(document, content)) {
     return false;
   }
 
@@ -243,9 +241,7 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
  *
  * すべて無効ならgetText()(全文のコピー)を呼ばずに終える
  */
-export function containsConvertTargetCharacters(
-  document: vscode.TextDocument,
-): boolean {
+export function containsEnabledTargets(document: vscode.TextDocument): boolean {
   const targets = getEnabledTargets();
 
   if (targets.length === 0) {
@@ -260,6 +256,6 @@ export function containsConvertTargetCharacters(
  *
  * @returns 変換後のバッファ。変換対象が無ければ引数そのもの
  */
-export function replaceSpecificCharactersInBuffer(buf: Buffer): Buffer {
+export function convertBytesByConfig(buf: Buffer): Buffer {
   return convertBytes(buf, getEnabledTargets());
 }

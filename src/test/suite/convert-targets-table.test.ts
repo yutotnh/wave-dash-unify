@@ -7,8 +7,8 @@ import * as vscode from "vscode";
 /**
  * CONVERT_TARGETSのテーブルが変換対象の単一の定義源になっていることを検証する
  *
- * containsConvertTargetCharacters(Unicode文字での判定)と
- * replaceSpecificCharactersInBuffer(バイト列での変換)は同じテーブルから
+ * containsEnabledTargets(Unicode文字での判定)と
+ * convertBytesByConfig(バイト列での変換)は同じテーブルから
  * 駆動されるべきものだが、片方にだけ変換対象が追加されても
  * 「新しい変換が静かに一切効かない」という形でしか現れず気付きにくい(issue #634)。
  *
@@ -39,7 +39,7 @@ suite("Convert Targets Table Test Suite", () => {
   /**
    * 変換対象文字を含むドキュメントを作る
    *
-   * containsConvertTargetCharactersはdocument.getText()だけを見る
+   * containsEnabledTargetsはdocument.getText()だけを見る
    * (EUC-JPかどうかの判定は呼び出し側の責務)ため、
    * 一時ファイルやエンコーディングの自動判定は不要
    *
@@ -62,7 +62,7 @@ suite("Convert Targets Table Test Suite", () => {
   });
 
   /**
-   * replaceSpecificCharactersInBufferの実装が前提にしているテーブルの不変条件を固定する
+   * convertBytesByConfigの実装が前提にしているテーブルの不変条件を固定する
    */
   test("every entry satisfies the assumptions of the byte scan", () => {
     const SS3 = 0x8f;
@@ -94,18 +94,18 @@ suite("Convert Targets Table Test Suite", () => {
     for (const target of convert.CONVERT_TARGETS) {
       const document = await openDocumentContaining(target.char);
       assert.strictEqual(
-        saveConverter.containsConvertTargetCharacters(document),
+        saveConverter.containsEnabledTargets(document),
         true,
-        `containsConvertTargetCharactersが変換対象文字を検出しなかった: ${target.configKey}`,
+        `containsEnabledTargetsが変換対象文字を検出しなかった: ${target.configKey}`,
       );
 
-      const actual = saveConverter.replaceSpecificCharactersInBuffer(
+      const actual = saveConverter.convertBytesByConfig(
         Buffer.from([0xa4, 0xa2, ...target.from, 0xa4, 0xa2]),
       );
       assert.strictEqual(
         actual.toString("hex"),
         Buffer.from([0xa4, 0xa2, ...target.to, 0xa4, 0xa2]).toString("hex"),
-        `replaceSpecificCharactersInBufferが変換しなかった: ${target.configKey}`,
+        `convertBytesByConfigが変換しなかった: ${target.configKey}`,
       );
     }
   });
@@ -129,18 +129,18 @@ suite("Convert Targets Table Test Suite", () => {
 
       const document = await openDocumentContaining(target.char);
       assert.strictEqual(
-        saveConverter.containsConvertTargetCharacters(document),
+        saveConverter.containsEnabledTargets(document),
         true,
-        `設定を有効にしてもcontainsConvertTargetCharactersが検出しなかった: ${target.configKey}`,
+        `設定を有効にしてもcontainsEnabledTargetsが検出しなかった: ${target.configKey}`,
       );
 
-      const actual = saveConverter.replaceSpecificCharactersInBuffer(
+      const actual = saveConverter.convertBytesByConfig(
         Buffer.from([...target.from]),
       );
       assert.strictEqual(
         actual.toString("hex"),
         Buffer.from([...target.to]).toString("hex"),
-        `設定を有効にしてもreplaceSpecificCharactersInBufferが変換しなかった: ${target.configKey}`,
+        `設定を有効にしてもconvertBytesByConfigが変換しなかった: ${target.configKey}`,
       );
     }
   });
@@ -157,14 +157,14 @@ suite("Convert Targets Table Test Suite", () => {
     for (const target of convert.CONVERT_TARGETS) {
       const document = await openDocumentContaining(target.char);
       assert.strictEqual(
-        saveConverter.containsConvertTargetCharacters(document),
+        saveConverter.containsEnabledTargets(document),
         false,
-        `設定が無効なのにcontainsConvertTargetCharactersが検出した: ${target.configKey}`,
+        `設定が無効なのにcontainsEnabledTargetsが検出した: ${target.configKey}`,
       );
 
       const contents = Buffer.from([...target.from]);
       assert.strictEqual(
-        saveConverter.replaceSpecificCharactersInBuffer(contents),
+        saveConverter.convertBytesByConfig(contents),
         contents,
         `設定が無効なのに入力のBufferがそのまま返らなかった: ${target.configKey}`,
       );

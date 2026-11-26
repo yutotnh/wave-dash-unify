@@ -4,7 +4,7 @@
  * VS Codeに依存しない純粋な処理だけを置く。設定やファイルI/Oは呼び出し側が扱う
  */
 
-export const WAVEDASH_CODE_POINT = 0x301c;
+export const WAVE_DASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
 export const NUMERO_SIGN_CODE_POINT = 0x2116;
 
@@ -13,7 +13,7 @@ export const NUMERO_SIGN_CODE_POINT = 0x2116;
 // WAVE_DASH_CHAR(U+301C)はEUC-JPのファイルには出現しない(VS CodeのEUC-JPコーデックは
 // 0xA1 0xC1も0x8F 0xA2 0xB7もU+FF5Eにデコードするため。#635)。
 // UTF-8のファイルではステータスバーで数えるので残している
-const WAVE_DASH_CHAR = String.fromCodePoint(WAVEDASH_CODE_POINT);
+const WAVE_DASH_CHAR = String.fromCodePoint(WAVE_DASH_CODE_POINT);
 const FULLWIDTH_TILDE_CHAR = String.fromCodePoint(FULLWIDTH_TILDE_CODE_POINT);
 const NUMERO_SIGN_CHAR = String.fromCodePoint(NUMERO_SIGN_CODE_POINT);
 
@@ -154,7 +154,7 @@ function countOccurrences(str: string, target: string): number {
  *
  * @param str 数える文字列
  */
-export function countSpecificCharacters(str: string): {
+export function countTargetCharacters(str: string): {
   waveDashAndFullwidthTilde: number;
   numeroSign: number;
 } {

@@ -5,32 +5,32 @@ import * as vscode from "vscode";
 import * as convert from "../../convert";
 import * as saveConverter from "../../saveConverter";
 import {
-  canBeEUCJP,
-  isEUCJPBuffer,
-  isEUCJPConfirmed,
-  isEUCJPDocument,
+  canBeEucJp,
+  isEucJpBuffer,
+  isEucJpConfirmed,
+  getEucJpVerdict,
 } from "../../eucjp";
 
 /**
  * VS Code 1.100.0未満での経路(バイト列判定へのフォールバック)を固定するテスト
  *
- * isEUCJPConfirmedは、`document.encoding`が読めない場合(=isEUCJPDocumentが
- * "unknown"を返す場合)、ディスクから読んだバイト列をisEUCJPBufferに渡して
+ * isEucJpConfirmedは、`document.encoding`が読めない場合(=getEucJpVerdictが
+ * "unknown"を返す場合)、ディスクから読んだバイト列をisEucJpBufferに渡して
  * 確定判定する(src/eucjp.ts参照)。この経路は実際には1.100.0未満の実行時にしか
  * 通らないが、このテスト自体はテストを実行するVS Codeのバージョンに関係なく
  * 検証できるようにしたい。そのため`.encoding`を持たない最小限のダミーオブジェクトを
- * TextDocumentとして渡し、isEUCJPDocumentの判定を意図的に"unknown"にすることで、
+ * TextDocumentとして渡し、getEucJpVerdictの判定を意図的に"unknown"にすることで、
  * テスト実行環境が1.100.0以降であってもこのフォールバック経路を確実に踏む
  *
- * isEUCJPBuffer自体の網羅的な境界値テストはextension.test.tsの
- * "isEUCJPBuffer"で固定済みのため、ここでは重複を避け、isEUCJPConfirmedが
- * isEUCJPBufferの結果をそのまま確定判定として使っていることだけを確認する
+ * isEucJpBuffer自体の網羅的な境界値テストはextension.test.tsの
+ * "isEucJpBuffer"で固定済みのため、ここでは重複を避け、isEucJpConfirmedが
+ * isEucJpBufferの結果をそのまま確定判定として使っていることだけを確認する
  */
 suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
   /**
    * `.encoding`を持たないダミーのTextDocumentを作る
    *
-   * isEUCJPDocumentはdocument.encodingの有無だけを見て"unknown"かどうかを
+   * getEucJpVerdictはdocument.encodingの有無だけを見て"unknown"かどうかを
    * 判定するため、この最小限のオブジェクトだけで1.100.0未満相当の状態を
    * 再現できる
    *
@@ -43,24 +43,24 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
   /**
    * 過剰近似の契約を固定する
    *
-   * canBeEUCJPは「ディスクを読む前の足切り」であって、
+   * canBeEucJpは「ディスクを読む前の足切り」であって、
    * ファイルを書き換えてよいかの判断には使えない。1.100.0未満では
-   * canBeEUCJPが常にtrueを返す(=何も落とせない)という性質は、
-   * saveConverter.ts側の設計(convertFileで必ずisEUCJPConfirmedを通す、
-   * scheduleSaveConversionでcontainsConvertTargetCharactersによる足切りを足す)が
-   * 前提にしているもの。誤ってcanBeEUCJPを確定判定として扱う変更が入ったときに
+   * canBeEucJpが常にtrueを返す(=何も落とせない)という性質は、
+   * saveConverter.ts側の設計(convertFileで必ずisEucJpConfirmedを通す、
+   * scheduleSaveConversionでcontainsEnabledTargetsによる足切りを足す)が
+   * 前提にしているもの。誤ってcanBeEucJpを確定判定として扱う変更が入ったときに
    * 気付けるよう、ここで契約として固定しておく
    */
   test("1.100.0未満相当のドキュメントでは判定が過剰近似になる", () => {
     const document = documentWithoutEncoding();
 
     assert.strictEqual(
-      isEUCJPDocument(document),
+      getEucJpVerdict(document),
       "unknown",
       "document.encodingが無いのに確定判定が返った",
     );
     assert.strictEqual(
-      canBeEUCJP(document),
+      canBeEucJp(document),
       true,
       "判定材料が無いのにEUC-JPの可能性が否定された(過剰近似になっていない)",
     );
@@ -73,14 +73,14 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
     ]);
 
     assert.strictEqual(
-      isEUCJPBuffer(utf8Content),
+      isEucJpBuffer(utf8Content),
       false,
-      "UTF-8のバイト列がisEUCJPBufferでEUC-JPと判定された",
+      "UTF-8のバイト列がisEucJpBufferでEUC-JPと判定された",
     );
     assert.strictEqual(
-      isEUCJPConfirmed(documentWithoutEncoding(), utf8Content),
+      isEucJpConfirmed(documentWithoutEncoding(), utf8Content),
       false,
-      "UTF-8のバイト列がisEUCJPConfirmed(legacy path)でEUC-JPと判定された",
+      "UTF-8のバイト列がisEucJpConfirmed(legacy path)でEUC-JPと判定された",
     );
   });
 
@@ -90,14 +90,14 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
    * convertFileは「置換の走査 -> 置換対象があれば確定判定 -> 書き込み」の順で
    * 動く(置換対象が無ければディスクは書き換わらないので、エンコーディングを
    * 確定させる必要が無い)。この順序が安全なのは、変換対象のバイト列を含んでいても
-   * EUC-JPとして妥当でなければisEUCJPConfirmedが書き込みを止めるため
+   * EUC-JPとして妥当でなければisEucJpConfirmedが書き込みを止めるため
    *
-   * このテストは`isEUCJPConfirmed`を直接呼ばずに、公開APIの
-   * `replaceSpecificCharacters`から実際の変換経路を通してディスクの中身を確認する。
+   * このテストは`isEucJpConfirmed`を直接呼ばずに、公開APIの
+   * `convertSavedDocument`から実際の変換経路を通してディスクの中身を確認する。
    * 判定関数だけを単体で呼ぶテストでは、convertFileから確定判定が
    * 丸ごと消えても緑のままになり、この不変条件を守れない
    *
-   * `canBeEUCJP`は`"encoding" in document`しか見ないため、`.encoding`を持たない
+   * `canBeEucJp`は`"encoding" in document`しか見ないため、`.encoding`を持たない
    * ダミーのドキュメントを渡せば、テストを実行するVS Codeのバージョンに関係なく
    * 1.100.0未満の経路を確実に踏める
    */
@@ -163,7 +163,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
       fs.writeFileSync(file.name, contents);
 
       assert.strictEqual(
-        saveConverter.replaceSpecificCharacters(documentForFile(file.name)),
+        saveConverter.convertSavedDocument(documentForFile(file.name)),
         false,
         "EUC-JPではないファイルに対して書き換えたと報告された",
       );
@@ -181,7 +181,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
       fs.writeFileSync(file.name, contents);
 
       assert.strictEqual(
-        saveConverter.replaceSpecificCharacters(documentForFile(file.name)),
+        saveConverter.convertSavedDocument(documentForFile(file.name)),
         true,
         "EUC-JPのファイルが書き換えられなかった",
       );
@@ -201,14 +201,14 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
     ]);
 
     assert.strictEqual(
-      isEUCJPBuffer(eucjpContent),
+      isEucJpBuffer(eucjpContent),
       true,
-      "EUC-JPのバイト列がisEUCJPBufferでEUC-JPと判定されなかった",
+      "EUC-JPのバイト列がisEucJpBufferでEUC-JPと判定されなかった",
     );
     assert.strictEqual(
-      isEUCJPConfirmed(documentWithoutEncoding(), eucjpContent),
+      isEucJpConfirmed(documentWithoutEncoding(), eucjpContent),
       true,
-      "EUC-JPのバイト列がisEUCJPConfirmed(legacy path)でEUC-JPと判定されなかった",
+      "EUC-JPのバイト列がisEucJpConfirmed(legacy path)でEUC-JPと判定されなかった",
     );
   });
 });

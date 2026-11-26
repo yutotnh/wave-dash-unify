@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { getStatusBarFormat, isConvertEnabled } from "./config";
-import { countSpecificCharacters } from "./convert";
+import { countTargetCharacters } from "./convert";
 import { createDebouncer } from "./debounce";
 
 // キー入力のたびに全文を数えないよう、この時間内の更新要求を1回にまとめる(ms)
@@ -27,7 +27,7 @@ export function createStatusBar(): StatusBar {
     vscode.StatusBarAlignment.Right,
   );
   item.name = "Wave Dash Unify";
-  item.command = "waveDashUnify.SelectEnableOrDisable";
+  item.command = "waveDashUnify.selectEnableOrDisable";
 
   const debouncer = createDebouncer(() => {
     updateStatusBarItem(item);
@@ -74,7 +74,7 @@ export function updateStatusBarItem(item: vscode.StatusBarItem) {
     ? "Wave Dash Unify is enabled"
     : "Wave Dash Unify is disabled";
 
-  const count = countSpecificCharacters(activeEditor.document.getText());
+  const count = countTargetCharacters(activeEditor.document.getText());
 
   // 同じ変数が複数回書かれていてもすべて置き換える
   item.text = format

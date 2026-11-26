@@ -37,7 +37,7 @@ suite("EUC-JP encoding invariants", () => {
   // EUC-JPにおける全角チルダのバイト列(3バイトのSS3領域)
   const FULLWIDTH_TILDE_BYTES = Uint8Array.from([0x8f, 0xa2, 0xb7]);
 
-  const WAVE_DASH = String.fromCodePoint(convert.WAVEDASH_CODE_POINT);
+  const WAVE_DASH = String.fromCodePoint(convert.WAVE_DASH_CODE_POINT);
   const FULLWIDTH_TILDE = String.fromCodePoint(
     convert.FULLWIDTH_TILDE_CODE_POINT,
   );
@@ -105,7 +105,7 @@ suite("EUC-JP encoding invariants", () => {
     );
   });
 
-  test("EUC-JPファイル由来のテキストではcountSpecificCharactersの波ダッシュ分は常に0件になる", async () => {
+  test("EUC-JPファイル由来のテキストではcountTargetCharactersの波ダッシュ分は常に0件になる", async () => {
     // 波ダッシュのバイト列と全角チルダのバイト列を混在させた
     // EUC-JPファイル相当のバイト列を用意する
     const bytes = Uint8Array.from([
@@ -122,10 +122,10 @@ suite("EUC-JP encoding invariants", () => {
       `デコード結果にU+301Cが含まれている: ${JSON.stringify(decoded)}`,
     );
 
-    const count = convert.countSpecificCharacters(decoded);
+    const count = convert.countTargetCharacters(decoded);
 
     // 3文字すべてがU+FF5Eとしてカウントされる。
-    // つまりcountSpecificCharactersのWAVE_DASH_CHAR分の寄与は0件であり、
+    // つまりcountTargetCharactersのWAVE_DASH_CHAR分の寄与は0件であり、
     // EUC-JPのファイルに対しては実質デッドコードになっている
     assert.strictEqual(
       count.waveDashAndFullwidthTilde,

@@ -43,7 +43,7 @@ type WorkspaceWithCodec = typeof vscode.workspace & {
  * (`workspace.encode`/`workspace.decode`)を持つかを判定する
  *
  * バージョン文字列の比較ではなく、実際にAPIが生えているかで判定する
- * (src/eucjp.tsの`isEUCJPDocument`と同じ方針)。これを使うテストは、
+ * (src/eucjp.tsの`getEucJpVerdict`と同じ方針)。これを使うテストは、
  * 判定がfalseになる環境(1.100.0未満)では`this.skip()`でスキップすること
  *
  * @returns `true`: エンコーディングAPIが使える, `false`: 使えない(1.100.0未満)

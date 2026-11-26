@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
         setEnabledAndUpdateStatusBar(false),
       ),
       vscode.commands.registerCommand(
-        "waveDashUnify.SelectEnableOrDisable",
+        "waveDashUnify.selectEnableOrDisable",
         async () => {
           const picked = await vscode.window.showQuickPick([
             { label: "Enable convert", enabled: true },
