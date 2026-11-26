@@ -192,8 +192,8 @@ function convertFile(
   const content = fs.readFileSync(fileName);
   const converted = replaceSpecificCharactersInBuffer(content);
 
-  // 変換対象が無ければ同じBufferが返る
-  if (converted === content || Buffer.compare(converted, content) === 0) {
+  // convertBytesは変換対象が無いときだけ同じBufferを返すので、参照の比較で足りる
+  if (converted === content) {
     return false;
   }
 
