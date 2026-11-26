@@ -12,6 +12,10 @@ or each release's GitHub Releases page for those.
 
 ## [Unreleased]
 
+### Added
+
+- ステータスバーの項目にIDを付け、ステータスバーの右クリックメニューからこの項目だけを非表示にできるようにしました。([#813](https://github.com/yutotnh/wave-dash-unify/pull/813))
+
 ### Fixed
 
 - `waveDashUnify.statusBarFormat`で同じ変数(`${numeroSignCount}`など)を複数回書いたとき、最初の1つしか置換されず、2つ目以降が`${...}`のまま表示される問題を修正しました。
