@@ -8,7 +8,6 @@ import {
   isEUCJPBuffer,
   isEUCJPConfirmed,
   isEUCJPDocument,
-  needsBytesToDecideEUCJP,
 } from "../../eucjp";
 
 /**
@@ -43,7 +42,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
   /**
    * 過剰近似の契約を固定する
    *
-   * canBeEUCJPとneedsBytesToDecideEUCJPは「ディスクを読む前の足切り」であって、
+   * canBeEUCJPは「ディスクを読む前の足切り」であって、
    * ファイルを書き換えてよいかの判断には使えない。1.100.0未満では
    * canBeEUCJPが常にtrueを返す(=何も落とせない)という性質は、
    * extension.ts側の設計(convertSavedFileで必ずisEUCJPConfirmedを通す、
@@ -58,11 +57,6 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
       isEUCJPDocument(document),
       "unknown",
       "document.encodingが無いのに確定判定が返った",
-    );
-    assert.strictEqual(
-      needsBytesToDecideEUCJP(document),
-      true,
-      "確定判定にバイト列が必要だと判定されなかった",
     );
     assert.strictEqual(
       canBeEUCJP(document),

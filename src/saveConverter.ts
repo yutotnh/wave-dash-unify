@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { getEnabledTargets, isConvertEnabled } from "./config";
 import { containsTargetCharacters, convertBytes } from "./convert";
 import { createDebouncer, Debouncer } from "./debounce";
-import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
+import { canBeEUCJP, isEUCJPConfirmed, isEUCJPDocument } from "./eucjp";
 
 /**
  * 保存後の変換
@@ -52,7 +52,7 @@ export function scheduleConversion(document: vscode.TextDocument) {
   // 1.100.0未満はcanBeEUCJPが常にtrueなので、対象文字が無いファイルまで
   // 予約してクローズ時にディスクを読まないよう、ここで足切りする
   if (
-    needsBytesToDecideEUCJP(document) &&
+    isEUCJPDocument(document) === "unknown" &&
     !containsConvertTargetCharacters(document)
   ) {
     return;
