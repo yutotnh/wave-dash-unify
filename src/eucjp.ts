@@ -30,14 +30,9 @@ const SS3 = 0x8f;
 /** `"unknown"`はバイト列を見ないと判定できないこと(1.100.0未満のみ)を表す */
 export type EucjpVerdict = true | false | "unknown";
 
-/** 2バイト文字を構成するバイト(0xA1〜0xFE)か */
-function isDoubleByteRange(byte: number): boolean {
-  return byte >= 0xa1 && byte <= 0xfe;
-}
-
-/** SS2に続く半角カナのバイト(0xA1〜0xDF)か */
-function isHalfwidthKatakanaByte(byte: number): boolean {
-  return byte >= 0xa1 && byte <= 0xdf;
+/** byteがlo〜hiの範囲内か(範囲外の添字でundefinedなら`false`) */
+function inRange(byte: number | undefined, lo: number, hi: number): boolean {
+  return byte !== undefined && byte >= lo && byte <= hi;
 }
 
 /**
@@ -64,63 +59,30 @@ function isHalfwidthKatakanaByte(byte: number): boolean {
  * @param buffer 判定するバイト列
  */
 export function isEUCJPBuffer(buffer: Buffer): boolean {
-  let position = 0;
+  let i = 0;
 
-  while (position < buffer.length) {
-    const byte = buffer[position];
+  while (i < buffer.length) {
+    const byte = buffer[i];
 
-    // noUncheckedIndexedAccessのため。while条件により実際には到達しない
-    if (byte === undefined) {
+    // ASCIIは最も多いので先に抜ける(undefinedはwhile条件により起きない)
+    if (byte === undefined || byte <= 0x7f) {
+      i += 1;
+    } else if (byte === SS2 && inRange(buffer[i + 1], 0xa1, 0xdf)) {
+      i += 2; // 半角カナ
+    } else if (
+      byte === SS3 &&
+      inRange(buffer[i + 1], 0xa1, 0xfe) &&
+      inRange(buffer[i + 2], 0xa1, 0xfe)
+    ) {
+      i += 3; // JIS X 0212
+    } else if (
+      inRange(byte, 0xa1, 0xfe) &&
+      inRange(buffer[i + 1], 0xa1, 0xfe)
+    ) {
+      i += 2; // JIS X 0208
+    } else {
       return false;
     }
-
-    // ASCII(制御文字を含む)
-    if (byte <= 0x7f) {
-      position += 1;
-      continue;
-    }
-
-    // 半角カナ: SS2 + 1バイト
-    if (byte === SS2) {
-      const next = buffer[position + 1];
-      if (next === undefined || !isHalfwidthKatakanaByte(next)) {
-        return false;
-      }
-
-      position += 2;
-      continue;
-    }
-
-    // 補助漢字: SS3 + 2バイト
-    if (byte === SS3) {
-      const next1 = buffer[position + 1];
-      const next2 = buffer[position + 2];
-      if (
-        next1 === undefined ||
-        next2 === undefined ||
-        !isDoubleByteRange(next1) ||
-        !isDoubleByteRange(next2)
-      ) {
-        return false;
-      }
-
-      position += 3;
-      continue;
-    }
-
-    // JIS X 0208: 2バイト
-    if (isDoubleByteRange(byte)) {
-      const next = buffer[position + 1];
-      if (next === undefined || !isDoubleByteRange(next)) {
-        return false;
-      }
-
-      position += 2;
-      continue;
-    }
-
-    // どの並びにも当てはまらない(0x80〜0x8D, 0x90〜0xA0, 0xFF)
-    return false;
   }
 
   return true;
