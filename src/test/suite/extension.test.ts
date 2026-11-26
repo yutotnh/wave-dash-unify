@@ -1,5 +1,8 @@
 import * as assert from "assert";
-import * as extension from "../../extension";
+import { isConvertEnabled } from "../../config";
+import * as convert from "../../convert";
+import * as saveConverter from "../../saveConverter";
+import * as statusBar from "../../statusBar";
 import * as eucjp from "../../eucjp";
 import * as fs from "fs";
 import * as tmp from "tmp";
@@ -137,7 +140,10 @@ suite("Extension Test Suite", () => {
         // 変換が無効の場合は「変換されないこと」の確認なので、
         // 変換が誤ってスケジュールされていれば実行されているはずの時間まで待つ
         await new Promise((resolve) =>
-          setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+          setTimeout(
+            resolve,
+            saveConverter.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100,
+          ),
         );
       }
 
@@ -207,13 +213,13 @@ suite("Extension Test Suite", () => {
 
     await vscode.commands.executeCommand("waveDashUnify.enableConvert");
 
-    assert.strictEqual(extension.isConvertEnabled(), true);
+    assert.strictEqual(isConvertEnabled(), true);
 
     // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき
 
     await vscode.commands.executeCommand("waveDashUnify.disableConvert");
 
-    assert.strictEqual(extension.isConvertEnabled(), false);
+    assert.strictEqual(isConvertEnabled(), false);
   });
 
   /**
@@ -229,7 +235,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    assert.strictEqual(extension.isConvertEnabled(), true);
+    assert.strictEqual(isConvertEnabled(), true);
 
     // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき
     await config.update(
@@ -238,7 +244,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    assert.strictEqual(extension.isConvertEnabled(), false);
+    assert.strictEqual(isConvertEnabled(), false);
   });
 
   /**
@@ -387,7 +393,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension
+        saveConverter
           .replaceSpecificCharactersInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
@@ -404,14 +410,14 @@ suite("Extension Test Suite", () => {
       // 全角チルダのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+        string: String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT),
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(
-          extension.FULLWIDTH_TILDE_CODE_POINT,
-        ).repeat(2),
+        string: String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT).repeat(
+          2,
+        ),
         count: 2,
       },
       // 全角チルダの前後にASCII文字
@@ -419,19 +425,19 @@ suite("Extension Test Suite", () => {
       {
         string:
           "1" +
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
+          String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
           "2",
         count: 2,
       },
       // 波ダッシュのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT),
+        string: String.fromCodePoint(convert.WAVEDASH_CODE_POINT),
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
+        string: String.fromCodePoint(convert.WAVEDASH_CODE_POINT).repeat(2),
         count: 2,
       },
       // 波ダッシュの前後にASCII文字
@@ -439,7 +445,7 @@ suite("Extension Test Suite", () => {
       {
         string:
           "1" +
-          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
+          String.fromCodePoint(convert.WAVEDASH_CODE_POINT).repeat(2) +
           "2",
         count: 2,
       },
@@ -447,8 +453,8 @@ suite("Extension Test Suite", () => {
       // 文字列: "～～～～"
       {
         string:
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
-          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
+          String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
+          String.fromCodePoint(convert.WAVEDASH_CODE_POINT).repeat(2),
         count: 4,
       },
       // 全角チルダと波ダッシュがない文字列
@@ -461,7 +467,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension.countSpecificCharacters(content.string)
+        convert.countSpecificCharacters(content.string)
           .waveDashAndFullwidthTilde,
         content.count,
         `content: ${content.string}`,
@@ -503,7 +509,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension
+        saveConverter
           .replaceSpecificCharactersInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
@@ -520,14 +526,12 @@ suite("Extension Test Suite", () => {
       // 全角NOのみ
       // 文字列: "№"
       {
-        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+        string: String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT),
         count: 1,
       },
       // 文字列: "№№"
       {
-        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
-          2,
-        ),
+        string: String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT).repeat(2),
         count: 2,
       },
       // 全角NOの前後にASCII文字
@@ -535,15 +539,13 @@ suite("Extension Test Suite", () => {
       {
         string:
           "1" +
-          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(2) +
+          String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT).repeat(2) +
           "2",
         count: 2,
       },
       // 文字列: "№№"
       {
-        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
-          2,
-        ),
+        string: String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT).repeat(2),
         count: 2,
       },
       // 全角NOがない文字列
@@ -556,7 +558,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension.countSpecificCharacters(content.string).numeroSign,
+        convert.countSpecificCharacters(content.string).numeroSign,
         content.count,
         `content: ${content.string}`,
       );
@@ -579,7 +581,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension
+        saveConverter
           .replaceSpecificCharactersInBuffer(content.before)
           .toString("hex"),
         content.after.toString("hex"),
@@ -596,17 +598,17 @@ suite("Extension Test Suite", () => {
       // 文字列: "№№"
       {
         string:
-          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(1) +
-          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
-          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(4) +
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(8),
+          String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT).repeat(1) +
+          String.fromCodePoint(convert.WAVEDASH_CODE_POINT).repeat(2) +
+          String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT).repeat(4) +
+          String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT).repeat(8),
         count: { waveDashAndFullwidthTilde: 10, numeroSign: 5 },
       },
     ];
 
     contents.forEach((content) => {
       assert.deepStrictEqual(
-        extension.countSpecificCharacters(content.string),
+        convert.countSpecificCharacters(content.string),
         content.count,
         `content: ${content.string}`,
       );
@@ -645,28 +647,28 @@ suite("Extension Test Suite", () => {
 
     await configuration(true, true);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      saveConverter.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
     );
 
     await configuration(true, false);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      saveConverter.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0x8f, 0xa2, 0xf1]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
     );
 
     await configuration(false, true);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      saveConverter.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       Buffer.from([0x8f, 0xa2, 0xb7, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
     );
 
     await configuration(false, false);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      saveConverter.replaceSpecificCharactersInBuffer(contents).toString("hex"),
       contents.toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
     );
@@ -739,7 +741,7 @@ suite("Extension Test Suite", () => {
     );
 
     assert.strictEqual(
-      extension.containsConvertTargetCharacters(document),
+      saveConverter.containsConvertTargetCharacters(document),
       false,
       `containsConvertTargetCharactersがtrueを返した: ${message}`,
     );
@@ -768,7 +770,7 @@ suite("Extension Test Suite", () => {
     // 直後に読むと、変換がまだ実行されていないだけで「変化しなかった」と
     // 誤判定してしまい、この比較が実質的に何も検証しないことになる
     await new Promise((resolve) =>
-      setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+      setTimeout(resolve, saveConverter.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
     );
 
     const actual = fs.readFileSync(tmpFile.name);
@@ -816,7 +818,7 @@ suite("Extension Test Suite", () => {
     ]);
     await assertSaveLeavesFileUnchanged(
       fullwidthTildeOnly,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT),
       false,
       true,
       "fullwidthTildeToWaveDash: falseなのに、全角チルダのみのファイルが保存によって変化した",
@@ -829,7 +831,7 @@ suite("Extension Test Suite", () => {
     ]);
     await assertSaveLeavesFileUnchanged(
       numeroSignOnly,
-      "ああああ" + String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+      "ああああ" + String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT),
       true,
       false,
       "numeroSignToNumeroSign: falseなのに、全角NOのみのファイルが保存によって変化した",
@@ -885,18 +887,18 @@ suite("Extension Test Suite", () => {
     );
     assertDecodedAsEucjp(
       waveDashDocument,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
     assert.strictEqual(
       waveDashDocument
         .getText()
-        .includes(String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT)),
+        .includes(String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT)),
       true,
       "波ダッシュ(0xA1 0xC1)がU+FF5Eにデコードされなかった",
     );
     assert.strictEqual(
-      extension.containsConvertTargetCharacters(waveDashDocument),
+      saveConverter.containsConvertTargetCharacters(waveDashDocument),
       true,
       "既に変換済みの波ダッシュが判定で取りこぼされた",
     );
@@ -913,18 +915,18 @@ suite("Extension Test Suite", () => {
     );
     assertDecodedAsEucjp(
       numeroSignDocument,
-      "ああああ" + String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+      "ああああ" + String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT),
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
     assert.strictEqual(
       numeroSignDocument
         .getText()
-        .includes(String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT)),
+        .includes(String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT)),
       true,
       "全角NO(0xAD 0xE2)がU+2116にデコードされなかった",
     );
     assert.strictEqual(
-      extension.containsConvertTargetCharacters(numeroSignDocument),
+      saveConverter.containsConvertTargetCharacters(numeroSignDocument),
       true,
       "既に変換済みの全角NOが判定で取りこぼされた",
     );
@@ -932,7 +934,7 @@ suite("Extension Test Suite", () => {
 
   /**
    * ステータスバーの初期化を行う関数をテストする
-   * NOTE: テスト対象のsetupStatusBarItem()はグローバル変数の初期化を行う関数なのでテストしない
+   * NOTE: createStatusBar()はステータスバー項目を作るだけなのでテストしない
    */
 
   /**
@@ -960,7 +962,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    extension.updateStatusBarItem(statusBarItem);
+    statusBar.updateStatusBarItem(statusBarItem);
 
     const expectedEnableStatusIcon = "$(pass-filled)";
     assert.strictEqual(
@@ -979,7 +981,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    extension.updateStatusBarItem(statusBarItem);
+    statusBar.updateStatusBarItem(statusBarItem);
 
     const expectedDisableStatusIcon = "$(error)";
     assert.strictEqual(
@@ -1009,13 +1011,13 @@ suite("Extension Test Suite", () => {
     const document = await vscode.workspace.openTextDocument({
       language: "plaintext",
       content:
-        String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(
+        String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT).repeat(
           fullwidthTildeCount,
         ) +
-        String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(
+        String.fromCodePoint(convert.WAVEDASH_CODE_POINT).repeat(
           waveDashCount,
         ) +
-        String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
+        String.fromCodePoint(convert.NUMERO_SIGN_CODE_POINT).repeat(
           numeroSignCount,
         ),
     });
@@ -1036,7 +1038,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    extension.updateStatusBarItem(statusBarItem);
+    statusBar.updateStatusBarItem(statusBarItem);
 
     const expectedText = `$(pass-filled) ～: ${(waveDashCount + fullwidthTildeCount).toString()}, №: ${numeroSignCount.toString()}`;
     // ステータスバーに表示される文字列が正しいことを確認する
@@ -1052,7 +1054,7 @@ suite("Extension Test Suite", () => {
       "",
       vscode.ConfigurationTarget.Global,
     );
-    extension.updateStatusBarItem(statusBarItem);
+    statusBar.updateStatusBarItem(statusBarItem);
     assert.strictEqual(statusBarItem.text, "", "statusBarFormat: empty");
 
     // formatが任意の文字列の時、ステータスバーに表示されることを確認する
@@ -1062,7 +1064,7 @@ suite("Extension Test Suite", () => {
       "Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashAndFullwidthTildeCount})",
       vscode.ConfigurationTarget.Global,
     );
-    extension.updateStatusBarItem(statusBarItem);
+    statusBar.updateStatusBarItem(statusBarItem);
     const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount.toString()}) ～(${(waveDashCount + fullwidthTildeCount).toString()})`;
     assert.strictEqual(
       statusBarItem.text,
@@ -1076,7 +1078,7 @@ suite("Extension Test Suite", () => {
       "${numeroSignCount}/${numeroSignCount} ${statusIcon}${statusIcon}",
       vscode.ConfigurationTarget.Global,
     );
-    extension.updateStatusBarItem(statusBarItem);
+    statusBar.updateStatusBarItem(statusBarItem);
     assert.strictEqual(
       statusBarItem.text,
       `${numeroSignCount.toString()}/${numeroSignCount.toString()} $(pass-filled)$(pass-filled)`,

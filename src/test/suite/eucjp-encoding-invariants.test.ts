@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import * as extension from "../../extension";
+import * as convert from "../../convert";
 import {
   decodeBytes,
   encodeText,
@@ -37,9 +37,9 @@ suite("EUC-JP encoding invariants", () => {
   // EUC-JPにおける全角チルダのバイト列(3バイトのSS3領域)
   const FULLWIDTH_TILDE_BYTES = Uint8Array.from([0x8f, 0xa2, 0xb7]);
 
-  const WAVE_DASH = String.fromCodePoint(extension.WAVEDASH_CODE_POINT);
+  const WAVE_DASH = String.fromCodePoint(convert.WAVEDASH_CODE_POINT);
   const FULLWIDTH_TILDE = String.fromCodePoint(
-    extension.FULLWIDTH_TILDE_CODE_POINT,
+    convert.FULLWIDTH_TILDE_CODE_POINT,
   );
 
   const decodeEucjp = (bytes: Uint8Array): Thenable<string> =>
@@ -122,7 +122,7 @@ suite("EUC-JP encoding invariants", () => {
       `デコード結果にU+301Cが含まれている: ${JSON.stringify(decoded)}`,
     );
 
-    const count = extension.countSpecificCharacters(decoded);
+    const count = convert.countSpecificCharacters(decoded);
 
     // 3文字すべてがU+FF5Eとしてカウントされる。
     // つまりcountSpecificCharactersのWAVE_DASH_CHAR分の寄与は0件であり、

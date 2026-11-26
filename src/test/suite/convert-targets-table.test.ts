@@ -1,5 +1,6 @@
 import * as assert from "assert";
-import * as extension from "../../extension";
+import * as convert from "../../convert";
+import * as saveConverter from "../../saveConverter";
 
 import * as vscode from "vscode";
 
@@ -17,7 +18,7 @@ import * as vscode from "vscode";
 suite("Convert Targets Table Test Suite", () => {
   // 同じ設定キーを複数のエントリが共有していても1回だけ更新すればよい
   const configKeys = [
-    ...new Set(extension.CONVERT_TARGETS.map((target) => target.configKey)),
+    ...new Set(convert.CONVERT_TARGETS.map((target) => target.configKey)),
   ];
 
   /**
@@ -66,7 +67,7 @@ suite("Convert Targets Table Test Suite", () => {
   test("every entry satisfies the assumptions of the byte scan", () => {
     const SS3 = 0x8f;
 
-    for (const target of extension.CONVERT_TARGETS) {
+    for (const target of convert.CONVERT_TARGETS) {
       assert.strictEqual(
         target.from[0],
         SS3,
@@ -90,15 +91,15 @@ suite("Convert Targets Table Test Suite", () => {
   test("every enabled entry is detected and converted", async () => {
     await updateAllConfigs(true);
 
-    for (const target of extension.CONVERT_TARGETS) {
+    for (const target of convert.CONVERT_TARGETS) {
       const document = await openDocumentContaining(target.char);
       assert.strictEqual(
-        extension.containsConvertTargetCharacters(document),
+        saveConverter.containsConvertTargetCharacters(document),
         true,
         `containsConvertTargetCharactersが変換対象文字を検出しなかった: ${target.configKey}`,
       );
 
-      const actual = extension.replaceSpecificCharactersInBuffer(
+      const actual = saveConverter.replaceSpecificCharactersInBuffer(
         Buffer.from([0xa4, 0xa2, ...target.from, 0xa4, 0xa2]),
       );
       assert.strictEqual(
@@ -116,7 +117,7 @@ suite("Convert Targets Table Test Suite", () => {
    * 新しいエントリの設定が無視されるためここで落ちる
    */
   test("every entry is driven by its own config key", async () => {
-    for (const target of extension.CONVERT_TARGETS) {
+    for (const target of convert.CONVERT_TARGETS) {
       await updateAllConfigs(false);
 
       const config = vscode.workspace.getConfiguration("waveDashUnify");
@@ -128,12 +129,12 @@ suite("Convert Targets Table Test Suite", () => {
 
       const document = await openDocumentContaining(target.char);
       assert.strictEqual(
-        extension.containsConvertTargetCharacters(document),
+        saveConverter.containsConvertTargetCharacters(document),
         true,
         `設定を有効にしてもcontainsConvertTargetCharactersが検出しなかった: ${target.configKey}`,
       );
 
-      const actual = extension.replaceSpecificCharactersInBuffer(
+      const actual = saveConverter.replaceSpecificCharactersInBuffer(
         Buffer.from([...target.from]),
       );
       assert.strictEqual(
@@ -148,22 +149,22 @@ suite("Convert Targets Table Test Suite", () => {
    * すべての設定を無効にすると、どのエントリも変換対象と見なされないことを確認する
    *
    * 変換対象が1つも無い場合に入力のBufferがそのまま(コピーせず)返る挙動も
-   * ここで固定する(convertSavedFileが参照比較で書き換え不要と判定するため)
+   * ここで固定する(convertFileが参照比較で書き換え不要と判定するため)
    */
   test("no entry is a convert target while all configs are disabled", async () => {
     await updateAllConfigs(false);
 
-    for (const target of extension.CONVERT_TARGETS) {
+    for (const target of convert.CONVERT_TARGETS) {
       const document = await openDocumentContaining(target.char);
       assert.strictEqual(
-        extension.containsConvertTargetCharacters(document),
+        saveConverter.containsConvertTargetCharacters(document),
         false,
         `設定が無効なのにcontainsConvertTargetCharactersが検出した: ${target.configKey}`,
       );
 
       const contents = Buffer.from([...target.from]);
       assert.strictEqual(
-        extension.replaceSpecificCharactersInBuffer(contents),
+        saveConverter.replaceSpecificCharactersInBuffer(contents),
         contents,
         `設定が無効なのに入力のBufferがそのまま返らなかった: ${target.configKey}`,
       );

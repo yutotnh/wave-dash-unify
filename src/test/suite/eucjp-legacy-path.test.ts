@@ -2,7 +2,8 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as vscode from "vscode";
-import * as extension from "../../extension";
+import * as convert from "../../convert";
+import * as saveConverter from "../../saveConverter";
 import {
   canBeEUCJP,
   isEUCJPBuffer,
@@ -46,7 +47,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
    * canBeEUCJPとneedsBytesToDecideEUCJPは「ディスクを読む前の足切り」であって、
    * ファイルを書き換えてよいかの判断には使えない。1.100.0未満では
    * canBeEUCJPが常にtrueを返す(=何も落とせない)という性質は、
-   * extension.ts側の設計(convertSavedFileで必ずisEUCJPConfirmedを通す、
+   * saveConverter.ts側の設計(convertFileで必ずisEUCJPConfirmedを通す、
    * scheduleSaveConversionでcontainsConvertTargetCharactersによる足切りを足す)が
    * 前提にしているもの。誤ってcanBeEUCJPを確定判定として扱う変更が入ったときに
    * 気付けるよう、ここで契約として固定しておく
@@ -92,14 +93,14 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
   /**
    * 1.100.0未満の経路で、ディスクへの書き込みが確定判定に守られていることを固定する
    *
-   * convertSavedFileは「置換の走査 -> 置換対象があれば確定判定 -> 書き込み」の順で
+   * convertFileは「置換の走査 -> 置換対象があれば確定判定 -> 書き込み」の順で
    * 動く(置換対象が無ければディスクは書き換わらないので、エンコーディングを
    * 確定させる必要が無い)。この順序が安全なのは、変換対象のバイト列を含んでいても
    * EUC-JPとして妥当でなければisEUCJPConfirmedが書き込みを止めるため
    *
    * このテストは`isEUCJPConfirmed`を直接呼ばずに、公開APIの
    * `replaceSpecificCharacters`から実際の変換経路を通してディスクの中身を確認する。
-   * 判定関数だけを単体で呼ぶテストでは、convertSavedFileから確定判定が
+   * 判定関数だけを単体で呼ぶテストでは、convertFileから確定判定が
    * 丸ごと消えても緑のままになり、この不変条件を守れない
    *
    * `canBeEUCJP`は`"encoding" in document`しか見ないため、`.encoding`を持たない
@@ -110,7 +111,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
     /**
      * 変換対象文字を含むテキストを返す、`.encoding`を持たないダミーのドキュメント
      *
-     * convertSavedFileまでの経路が参照するのはfileNameとgetText()だけ
+     * convertFileまでの経路が参照するのはfileNameとgetText()だけ
      *
      * @param fileName 変換対象のファイルのパス
      * @returns ダミーのTextDocument
@@ -118,8 +119,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
     function documentForFile(fileName: string): vscode.TextDocument {
       return {
         fileName,
-        getText: () =>
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+        getText: () => String.fromCodePoint(convert.FULLWIDTH_TILDE_CODE_POINT),
       } as unknown as vscode.TextDocument;
     }
 
@@ -169,7 +169,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
       fs.writeFileSync(file.name, contents);
 
       assert.strictEqual(
-        extension.replaceSpecificCharacters(documentForFile(file.name)),
+        saveConverter.replaceSpecificCharacters(documentForFile(file.name)),
         false,
         "EUC-JPではないファイルに対して書き換えたと報告された",
       );
@@ -187,7 +187,7 @@ suite("EUC-JP legacy path (VS Code 1.100.0未満のバイト列判定)", () => {
       fs.writeFileSync(file.name, contents);
 
       assert.strictEqual(
-        extension.replaceSpecificCharacters(documentForFile(file.name)),
+        saveConverter.replaceSpecificCharacters(documentForFile(file.name)),
         true,
         "EUC-JPのファイルが書き換えられなかった",
       );

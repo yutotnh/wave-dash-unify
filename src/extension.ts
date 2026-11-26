@@ -8,23 +8,6 @@ import {
 } from "./saveConverter";
 import { createStatusBar } from "./statusBar";
 
-// 既存の呼び出し側(テスト)との互換のため、各モジュールの定義を再exportする
-export {
-  CONVERT_TARGETS,
-  FULLWIDTH_TILDE_CODE_POINT,
-  NUMERO_SIGN_CODE_POINT,
-  WAVEDASH_CODE_POINT,
-  countSpecificCharacters,
-} from "./convert";
-export { isConvertEnabled } from "./config";
-export {
-  SAVE_CONVERSION_DEBOUNCE_MS,
-  containsConvertTargetCharacters,
-  replaceSpecificCharacters,
-  replaceSpecificCharactersInBuffer,
-} from "./saveConverter";
-export { updateStatusBarItem } from "./statusBar";
-
 export function activate(context: vscode.ExtensionContext) {
   const statusBar = createStatusBar();
 
