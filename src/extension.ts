@@ -5,15 +5,11 @@ import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
 import {
   CONFIG_SECTION,
   getEnabledTargets,
-  getStatusBarFormat,
   isConvertEnabled,
   setConvertEnabled,
 } from "./config";
-import {
-  containsTargetCharacters,
-  convertBytes,
-  countSpecificCharacters,
-} from "./convert";
+import { createStatusBar } from "./statusBar";
+import { containsTargetCharacters, convertBytes } from "./convert";
 
 // 既存の呼び出し側(テスト)との互換のため、convert.tsへ移した定義を再exportする
 export {
@@ -24,10 +20,7 @@ export {
   countSpecificCharacters,
 } from "./convert";
 export { isConvertEnabled } from "./config";
-
-// ステータスバー更新のデバウンス時間(ms)。キーストロークのたびに全文スキャンが
-// 走らないよう、この時間内の連続更新要求を1回にまとめる
-const STATUS_BAR_UPDATE_DEBOUNCE_MS = 200;
+export { updateStatusBarItem } from "./statusBar";
 
 // 保存後の変換を実行するまでのデバウンス時間(ms)。
 //
@@ -41,14 +34,6 @@ const STATUS_BAR_UPDATE_DEBOUNCE_MS = 200;
 // までの間隔よりは短い」という経験則で選んだ暫定値で、この不等式さえ満たせば
 // 正しさは変わらない
 export const SAVE_CONVERSION_DEBOUNCE_MS = 300;
-
-let statusBarItem: vscode.StatusBarItem;
-
-// setupStatusBarItemによる再代入後も正しいstatusBarItemを使うように、
-// 値ではなく変数を捕捉するクロージャにする
-const statusBarUpdateDebouncer = createDebouncer(() => {
-  updateStatusBarItem(statusBarItem);
-}, STATUS_BAR_UPDATE_DEBOUNCE_MS);
 
 // 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)。
 // postponed: trueは「dirtyだった、またはアクティブエディタでなかったため
@@ -66,10 +51,16 @@ const pendingConversions = new Map<
 const saveConversionDebouncers = new Map<string, Debouncer>();
 
 export function activate(context: vscode.ExtensionContext) {
-  setupStatusBarItem();
+  const statusBar = createStatusBar();
+
+  async function setEnabledAndUpdateStatusBar(enabled: boolean) {
+    await setConvertEnabled(enabled);
+    statusBar.update();
+  }
 
   context.subscriptions.push(
     vscode.Disposable.from(
+      statusBar,
       vscode.commands.registerCommand("waveDashUnify.enableConvert", () =>
         setEnabledAndUpdateStatusBar(true),
       ),
@@ -99,9 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
         flushPendingConversion(document.uri.toString());
       }),
       vscode.window.onDidChangeActiveTextEditor((editor) => {
-        // エディタが切り替わったので、直前のエディタ向けにスケジュールされていた更新は不要
-        statusBarUpdateDebouncer.cancel();
-        updateStatusBarItem(statusBarItem);
+        statusBar.update();
 
         // 非アクティブだったために先送りされていた変換があれば、
         // アクティブになったこのタイミングで再開する(runScheduledConversionの3を参照)
@@ -114,22 +103,17 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        statusBarUpdateDebouncer.schedule();
+        statusBar.scheduleUpdate();
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (!e.affectsConfiguration(CONFIG_SECTION)) {
           return;
         }
 
-        updateStatusBarItem(statusBarItem);
+        statusBar.update();
       }),
     ),
   );
-}
-
-async function setEnabledAndUpdateStatusBar(enabled: boolean) {
-  await setConvertEnabled(enabled);
-  updateStatusBarItem(statusBarItem);
 }
 
 /**
@@ -495,69 +479,11 @@ export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
   return convertBytes(str, getEnabledTargets());
 }
 
-/**
- * ステータスバーにWaveDashUnifyの状態を表示する
- */
-export function setupStatusBarItem() {
-  statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right,
-  );
-
-  statusBarItem.name = "Wave Dash Unify";
-  statusBarItem.command = "waveDashUnify.SelectEnableOrDisable";
-
-  updateStatusBarItem(statusBarItem);
-}
-
-/**
- * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効と対象文字の個数を表示する
- *
- * @param statusBarItem ステータスバーに表示する項目
- */
-export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
-  const activeEditor = vscode.window.activeTextEditor;
-
-  const format = getStatusBarFormat();
-  // package.jsonでdefaultを宣言している設定のため、undefinedにはならない。
-  // 型のためだけの分岐で、ここに到達したらステータスバーの更新自体を諦める
-  if (format === undefined) {
-    return;
-  }
-
-  // アクティブなテキストエディタがファイルではない場合は
-  // 全角チルダと波ダッシュの個数を表示しても意味がないので、
-  // ステータスバーの表示領域のスペースを空けるために非表示にする
-  if (!activeEditor) {
-    statusBarItem.hide();
-    return;
-  }
-
-  statusBarItem.show();
-
-  const isEnabled = isConvertEnabled();
-  statusBarItem.tooltip = isEnabled
-    ? "Wave Dash Unify is enabled"
-    : "Wave Dash Unify is disabled";
-
-  const count = countSpecificCharacters(activeEditor.document.getText());
-
-  // 同じ変数を複数回書いた場合もすべて置換するため、replaceではなくreplaceAllを使う
-  statusBarItem.text = format
-    .replaceAll("${statusIcon}", isEnabled ? "$(pass-filled)" : "$(error)")
-    .replaceAll(
-      "${waveDashAndFullwidthTildeCount}",
-      count.waveDashAndFullwidthTilde.toString(),
-    )
-    .replaceAll("${numeroSignCount}", count.numeroSign.toString());
-}
-
 export function deactivate() {
-  statusBarUpdateDebouncer.cancel();
-
   // 変換待ちのファイルを残さないように、終了前にすべて変換する。
   // これ以降の保存は起きないため、dirtyなものも変換する(第2引数)。
   // 1件のファイルアクセス失敗(外部でファイルが削除された場合など)が
-  // 残りのキーのflushとstatusBarItem.dispose()を止めないよう、
+  // 残りのキーのflushを止めないよう、
   // キーごとにエラーを分離する
   for (const key of [...pendingConversions.keys()]) {
     try {
@@ -566,6 +492,4 @@ export function deactivate() {
       // deactivate中の失敗に追加のリカバリ手段は無いため、ここでは無視する
     }
   }
-
-  statusBarItem.dispose();
 }
