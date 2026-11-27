@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import Mocha from "mocha";
-import { isTargetTestFile } from "./locale";
 
 /**
  * ディレクトリを再帰的に走査してテストファイルを集める
@@ -23,11 +22,7 @@ function findTestFiles(directory: string, testsRoot: string): string[] {
 
     if (entry.isDirectory()) {
       files.push(...findTestFiles(entryPath, testsRoot));
-    } else if (
-      entry.isFile() &&
-      entry.name.endsWith(".test.js") &&
-      isTargetTestFile(entry.name)
-    ) {
+    } else if (entry.isFile() && entry.name.endsWith(".test.js")) {
       files.push(path.relative(testsRoot, entryPath));
     }
   }

@@ -69,14 +69,45 @@ suite("l10n", () => {
     });
   });
 
-  test("setupL10nはどのバージョンのVS Codeでも例外を投げない", () => {
-    // 1.73.0未満はloadBundleFile、以降はvscode.l10n.bundleの経路を通る
-    try {
+  suite("setupL10n", () => {
+    teardown(() => {
+      l10n.config({ contents: {} });
+    });
+
+    test("本物のvscodeでも例外を投げない", () => {
+      // CIの1.66.0では自前の読み込み、1.100.0ではvscode.l10n.bundleの経路を通る
       assert.doesNotThrow(() => {
         setupL10n(extensionPath);
       });
-    } finally {
-      l10n.config({ contents: {} });
-    }
+    });
+
+    test("1.73.0以降はvscode.l10n.bundleを使い、l10n/は読まない", () => {
+      // 表示言語はjaだが、l10n/の訳ではなくbundleの訳が使われることを確かめる
+      setupL10n(extensionPath, {
+        env: { language: "ja" },
+        l10n: { bundle: { [ENABLED_TOOLTIP]: "bundle の訳" } },
+      });
+
+      assert.strictEqual(l10n.t(ENABLED_TOOLTIP), "bundle の訳");
+    });
+
+    test("1.73.0以降で訳の無い言語(bundleがundefined)では英語の原文を返す", () => {
+      loadBundleFile(extensionPath, "ja");
+      setupL10n(extensionPath, {
+        env: { language: "en" },
+        l10n: { bundle: undefined },
+      });
+
+      assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
+    });
+
+    test("1.73.0未満は表示言語に合わせてl10n/を読む", () => {
+      setupL10n(extensionPath, { env: { language: "ja" } });
+
+      assert.strictEqual(
+        l10n.t(ENABLED_TOOLTIP),
+        "Wave Dash Unify は有効です (クリックで無効化)",
+      );
+    });
   });
 });

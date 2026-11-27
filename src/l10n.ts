@@ -4,12 +4,13 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 /**
- * `vscode.l10n`のうち使う部分の型
+ * `vscode`のうち`setupL10n`が使う部分の型(テストで差し替えるため)
  *
- * VS Code 1.73.0で追加されたAPIで、`@types/vscode`(1.66.0)には無いため自分で書く
+ * `l10n`はVS Code 1.73.0で追加されたAPIで、`@types/vscode`(1.66.0)には無いため自分で書く
  */
-interface VscodeL10n {
-  bundle: l10n.l10nJsonFormat | undefined;
+export interface L10nHost {
+  env: { language: string };
+  l10n?: { bundle: l10n.l10nJsonFormat | undefined };
 }
 
 /**
@@ -23,17 +24,16 @@ interface VscodeL10n {
  * `l10n.t`を`vscode.l10n.t`に置き換えればよい
  *
  * @param extensionPath 拡張機能のインストール先
+ * @param host `vscode`モジュール(テスト用。省略時は本物)
  */
-export function setupL10n(extensionPath: string) {
-  const vscodeL10n = (vscode as unknown as { l10n?: VscodeL10n }).l10n;
-
-  if (vscodeL10n === undefined) {
-    loadBundleFile(extensionPath, vscode.env.language);
+export function setupL10n(extensionPath: string, host: L10nHost = vscode) {
+  if (host.l10n === undefined) {
+    loadBundleFile(extensionPath, host.env.language);
     return;
   }
 
   // 訳の無い言語(英語を含む)ではbundleがundefinedになり、英語の原文を表示する
-  l10n.config({ contents: vscodeL10n.bundle ?? {} });
+  l10n.config({ contents: host.l10n.bundle ?? {} });
 }
 
 /**

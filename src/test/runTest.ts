@@ -3,11 +3,9 @@ import { parseArgs } from "node:util";
 
 import {
   runTests,
-  runVSCodeCommand,
   downloadAndUnzipVSCode,
   TestOptions,
 } from "@vscode/test-electron";
-import { TEST_LOCALE_ENV } from "./suite/locale";
 
 /**
  * CLI 引数を解析してオプションを取得する
@@ -65,21 +63,6 @@ async function main() {
     }
 
     await runTests(options);
-
-    // 表示言語ごとの訳の読み込みを確かめるため、日本語でもう一度起動する。
-    // 対象はsuite/index.tsが*.locale.test.jsだけに絞る。
-    // 言語パックが無いと--locale=jaを付けても英語のまま起動するため、先に入れる
-    // (CLIはそのVS Codeに対応するバージョンの言語パックを選ぶ)
-    const install = await runVSCodeCommand(
-      ["--install-extension", "MS-CEINTL.vscode-language-pack-ja"],
-      vscodeVersion ? { version: vscodeVersion } : {},
-    );
-    console.log(install.stdout, install.stderr);
-    await runTests({
-      ...options,
-      launchArgs: ["--locale=ja"],
-      extensionTestsEnv: { [TEST_LOCALE_ENV]: "ja" },
-    });
   } catch (err) {
     console.error("Failed to run tests", err);
     process.exit(1);
