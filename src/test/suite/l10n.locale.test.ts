@@ -19,7 +19,11 @@ suite("l10n (ja)", () => {
     assert.strictEqual(vscode.env.language, "ja");
   });
 
-  test("setupL10nで日本語の訳が返る", () => {
+  test("setupL10nで日本語の訳が返る", async () => {
+    // VS Codeは拡張機能のコードを読み込む直前にvscode.l10n.bundleを用意する。
+    // テストランナーは拡張機能の有効化を待たずに動くため、先に有効化しておく
+    await vscode.extensions.getExtension("yutotnh.wave-dash-unify")?.activate();
+
     // out/test/suite から見た拡張機能のルート
     setupL10n(path.resolve(__dirname, "../../../"));
 
