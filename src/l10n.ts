@@ -8,6 +8,8 @@ import * as vscode from "vscode";
  *
  * 公式の`vscode.l10n`はVS Code 1.73.0で追加されたAPIで、最低対応の1.66.0では使えない。
  * そのため`l10n/`のバンドルを自分で選び、`@vscode/l10n`に渡す。
+ * `@vscode/l10n`のREADMEはメインプロセスでの利用を勧めていないが、それは1.73.0以上で
+ * VS Codeが訳を読み込むためで、その仕組みが無い1.73.0未満には当てはまらない。
  * `engines.vscode`を1.73.0以上に上げたら、このファイルと`@vscode/l10n`を消し、
  * `l10n.t`を`vscode.l10n.t`に置き換えればよい
  *
@@ -33,8 +35,9 @@ export function setupL10n(
 
   try {
     l10n.config({ fsPath: file });
-  } catch {
+  } catch (error) {
     // 翻訳が読めないだけで変換機能まで止めないよう、英語表示のまま続ける
+    console.error(`Wave Dash Unify: failed to load ${file}`, error);
   }
 }
 
