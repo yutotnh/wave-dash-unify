@@ -16,9 +16,9 @@ export interface StatusBar {
 
 /** ステータスバー項目を作って表示する */
 export function createStatusBar(): StatusBar {
-  // IDを付けると、ユーザーがこの項目だけを個別に非表示にできる
+  // IDは付けない。付けないと拡張機能のIDが使われ、それで既に個別に非表示にできる。
+  // 変えると、非表示にしている利用者の項目がまた表示されてしまう(#817)
   const item = vscode.window.createStatusBarItem(
-    "waveDashUnify.status",
     vscode.StatusBarAlignment.Right,
   );
   item.name = "Wave Dash Unify";

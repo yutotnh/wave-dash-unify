@@ -12,10 +12,6 @@ or each release's GitHub Releases page for those.
 
 ## [Unreleased]
 
-### Added
-
-- ステータスバーの項目にIDを付け、ステータスバーの右クリックメニューからこの項目だけを非表示にできるようにしました。([#814](https://github.com/yutotnh/wave-dash-unify/pull/814))
-
 ### Changed
 
 - ステータスバーの項目をクリックすると、選択肢を出さずにすぐ変換の有効/無効が切り替わるようにしました。これに伴い、選択肢を出す内部コマンド`waveDashUnify.SelectEnableOrDisable`を削除しました。([#818](https://github.com/yutotnh/wave-dash-unify/pull/818))
