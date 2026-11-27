@@ -12,6 +12,10 @@ or each release's GitHub Releases page for those.
 
 ## [Unreleased]
 
+### Changed
+
+- ステータスバーの項目をクリックすると、選択肢を出さずにすぐ変換の有効/無効が切り替わるようにしました。これに伴い、選択肢を出す内部コマンド`waveDashUnify.SelectEnableOrDisable`を削除しました。([#818](https://github.com/yutotnh/wave-dash-unify/pull/818))
+
 ### Fixed
 
 - `waveDashUnify.statusBarFormat`で同じ変数(`${numeroSignCount}`など)を複数回書いたとき、最初の1つしか置換されず、2つ目以降が`${...}`のまま表示される問題を修正しました。

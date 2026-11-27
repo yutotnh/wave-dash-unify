@@ -969,8 +969,12 @@ suite("Extension Test Suite", () => {
       expectedEnableStatusIcon,
     );
 
-    const expectedEnableStatusTooltip = "Wave Dash Unify is enabled";
+    const expectedEnableStatusTooltip =
+      "Wave Dash Unify is enabled (click to disable)";
     assert.strictEqual(statusBarItem.tooltip, expectedEnableStatusTooltip);
+
+    // 有効なときは、クリックで無効にする
+    assert.strictEqual(statusBarItem.command, "waveDashUnify.disableConvert");
 
     // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき、先頭に"$(error)"が表示されることを確認する
     await config.update(
@@ -988,8 +992,55 @@ suite("Extension Test Suite", () => {
       expectedDisableStatusIcon,
     );
 
-    const expectedDisableStatusTooltip = "Wave Dash Unify is disabled";
+    const expectedDisableStatusTooltip =
+      "Wave Dash Unify is disabled (click to enable)";
     assert.strictEqual(statusBarItem.tooltip, expectedDisableStatusTooltip);
+
+    // 無効なときは、クリックで有効にする
+    assert.strictEqual(statusBarItem.command, "waveDashUnify.enableConvert");
+  });
+
+  /**
+   * ステータスバー項目のクリックで、有効と無効が交互に切り替わることを確かめる
+   *
+   * クリックと同じように、項目に設定されたコマンドを実行する
+   */
+  test("status bar item click toggles convert", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      language: "plaintext",
+      content: "",
+    });
+    await vscode.window.showTextDocument(document);
+
+    const statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+    );
+
+    /** 表示を更新してから、項目のコマンドを実行する(= クリック) */
+    async function click() {
+      extension.updateStatusBarItem(statusBarItem);
+      const command = statusBarItem.command;
+      assert.strictEqual(typeof command, "string");
+      await vscode.commands.executeCommand(command as string);
+    }
+
+    try {
+      await vscode.workspace
+        .getConfiguration("waveDashUnify")
+        .update("enableConvert", true, vscode.ConfigurationTarget.Global);
+
+      await click();
+      assert.strictEqual(
+        extension.isConvertEnabled(),
+        false,
+        "1回目のクリック",
+      );
+
+      await click();
+      assert.strictEqual(extension.isConvertEnabled(), true, "2回目のクリック");
+    } finally {
+      statusBarItem.dispose();
+    }
   });
 
   /**
@@ -1087,8 +1138,4 @@ suite("Extension Test Suite", () => {
       placeHolder: "Please check the status bar",
     });
   });
-
-  // TODO ステータスバーのクリック時に実行されるコマンドのテストを行う
-  // test("status bar item click", () => {
-  // });
 });
