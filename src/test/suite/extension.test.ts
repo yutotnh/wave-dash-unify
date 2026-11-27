@@ -1,6 +1,14 @@
 import * as assert from "assert";
-import * as extension from "../../extension";
-import * as eucjp from "../../eucjp";
+import { readConfig } from "../../config";
+import {
+  CHARS,
+  convertBytes,
+  detectEncoding,
+  isEucJpBuffer,
+  TARGETS,
+} from "../../eucjp";
+import { SAVE_DEBOUNCE_MS } from "../../saveConverter";
+import { clickCommand, renderStatusText } from "../../statusBar";
 import * as fs from "fs";
 import * as tmp from "tmp";
 
@@ -14,6 +22,14 @@ import {
 } from "./vscode-api-compat";
 
 suite("Extension Test Suite", () => {
+  /** ステータスバーに表示される全角チルダと波ダッシュの合計数 */
+  const countTildes = (text: string) =>
+    Number(renderStatusText("${waveDashAndFullwidthTildeCount}", true, text));
+
+  /** ステータスバーに表示される全角NOの数 */
+  const countNumeroSigns = (text: string) =>
+    Number(renderStatusText("${numeroSignCount}", true, text));
+
   vscode.window.showInformationMessage("Start all tests.");
 
   /**
@@ -50,7 +66,7 @@ suite("Extension Test Suite", () => {
    *
    * 設定をtest()の中で元に戻す方式だと、restoreを書き忘れたテストの影響が
    * 後続のテストに漏れる。特にfullwidthTildeToWaveDash・numeroSignToNumeroSignが
-   * falseのまま残ると、containsConvertTargetCharactersの早期returnによって
+   * falseのまま残ると、保存時の足切りによって
    * 変換が一切行われなくなり、原因の分かりにくい失敗になる。
    * teardown()で毎回リセットすることで、テストの実行順に依存しないようにする
    */
@@ -137,7 +153,7 @@ suite("Extension Test Suite", () => {
         // 変換が無効の場合は「変換されないこと」の確認なので、
         // 変換が誤ってスケジュールされていれば実行されているはずの時間まで待つ
         await new Promise((resolve) =>
-          setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+          setTimeout(resolve, SAVE_DEBOUNCE_MS * 2 + 100),
         );
       }
 
@@ -207,13 +223,13 @@ suite("Extension Test Suite", () => {
 
     await vscode.commands.executeCommand("waveDashUnify.enableConvert");
 
-    assert.strictEqual(extension.isConvertEnabled(), true);
+    assert.strictEqual(readConfig().enabled, true);
 
     // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき
 
     await vscode.commands.executeCommand("waveDashUnify.disableConvert");
 
-    assert.strictEqual(extension.isConvertEnabled(), false);
+    assert.strictEqual(readConfig().enabled, false);
   });
 
   /**
@@ -229,7 +245,7 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    assert.strictEqual(extension.isConvertEnabled(), true);
+    assert.strictEqual(readConfig().enabled, true);
 
     // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき
     await config.update(
@@ -238,18 +254,18 @@ suite("Extension Test Suite", () => {
       vscode.ConfigurationTarget.Global,
     );
 
-    assert.strictEqual(extension.isConvertEnabled(), false);
+    assert.strictEqual(readConfig().enabled, false);
   });
 
   /**
-   * バイト列がEUC-JPとして構造的に妥当かを判定する関数(isEUCJPBuffer)をテストする
+   * バイト列がEUC-JPとして構造的に妥当かを判定する関数(isEucJpBuffer)をテストする
    *
    * このテストはVS Codeのバージョンに依存しない(document.encodingを使わず、
    * バイト列だけを見る)。PR #517で削除された判定用の網羅的なテストベクタを
-   * 復活させたもの。isEUCJPBufferは1.100.0未満での確定判定に今も使われている
+   * 復活させたもの。isEucJpBufferは1.100.0未満での確定判定に今も使われている
    * (src/eucjp.ts参照)ため、ここで境界条件込みで固定しておく
    */
-  test("isEUCJPBuffer", () => {
+  test("isEucJpBuffer", () => {
     const eucjpBuffers = [
       // 全角チルダ(SS3 + 2バイト)
       Buffer.from([0x8f, 0xa2, 0xb7]),
@@ -264,7 +280,7 @@ suite("Extension Test Suite", () => {
       // 半角カナ(SS2 + 1バイト)
       Buffer.from([0x8e, 0xb1]),
       // ASCIIのみ。EUC-JPとして構造的に妥当なのでtrueになる(意図した挙動。
-      // src/eucjp.tsのisEUCJPBufferのコメント参照。変換対象のバイト列は
+      // src/eucjp.tsのisEucJpBufferのコメント参照。変換対象のバイト列は
       // いずれもSS3で始まるため、ASCIIのみのファイルが書き換わることはない)
       Buffer.from([0x31, 0x32, 0x33]),
       // 空
@@ -272,11 +288,11 @@ suite("Extension Test Suite", () => {
       // 【既知の穴】GBKとして解釈すると"～彚稝"になるバイト列。
       // GBKは全角記号も漢字もすべて0xA1〜0xFEに収まるため、中文のテキストは
       // EUC-JPとしても構造的に妥当になってしまう。この列は
-      // 0xA1 0xAB(GBKの"～" = U+FF5E)を含むためcontainsConvertTargetCharactersも
+      // 0xA1 0xAB(GBKの"～" = U+FF5E)を含むため保存時の足切りも
       // 通り、0x8F 0xA2 0xB7(GBKの"彚" + 先頭バイト0xB7の漢字)を含むため
       // 1.100.0未満では実際に書き換えられてしまう。
       // これはバイト列からの推定に内在する限界で、0.3系のencoding-japaneseによる
-      // 判定にも同じように存在していた(src/eucjp.tsのisEUCJPBufferのコメント参照)。
+      // 判定にも同じように存在していた(src/eucjp.tsのisEucJpBufferのコメント参照)。
       // 将来ここを厳格化してGBKを弾けるようになったら、この項は
       // notEucjpBuffers側へ移すことになる
       Buffer.from([0xa1, 0xab, 0x8f, 0xa2, 0xb7, 0x40]),
@@ -284,7 +300,7 @@ suite("Extension Test Suite", () => {
 
     eucjpBuffers.forEach((buffer) => {
       assert.strictEqual(
-        eucjp.isEUCJPBuffer(buffer),
+        isEucJpBuffer(buffer),
         true,
         `buffer: ${buffer.toString("hex")}`,
       );
@@ -311,7 +327,7 @@ suite("Extension Test Suite", () => {
 
     notEucjpBuffers.forEach((buffer) => {
       assert.strictEqual(
-        eucjp.isEUCJPBuffer(buffer),
+        isEucJpBuffer(buffer),
         false,
         `buffer: ${buffer.toString("hex")}`,
       );
@@ -319,15 +335,15 @@ suite("Extension Test Suite", () => {
   });
 
   /**
-   * document.encodingによる確定判定(isEUCJPDocument)をテストする
+   * document.encodingによる判定(detectEncoding)をテストする
    *
    * document.encodingはVS Code 1.100.0で追加されたプロパティのため、
    * このテストは1.100.0以降でしか意味を持たない。APIが無い環境では
-   * isEUCJPDocumentは常に"unknown"を返す仕様(src/eucjp.ts参照)であり、
+   * detectEncodingは常に"unknown"を返す仕様(src/eucjp.ts参照)であり、
    * それ自体は当然の挙動でテストすべき対象ではないため、APIが無ければ
    * テストごとスキップする
    */
-  test("isEUCJPDocument", async function () {
+  test("detectEncoding", async function () {
     if (!supportsEncodingApi()) {
       this.skip();
     }
@@ -337,8 +353,8 @@ suite("Extension Test Suite", () => {
       "eucjp",
     );
     assert.strictEqual(
-      eucjp.isEUCJPDocument(eucjpDocument),
-      true,
+      detectEncoding(eucjpDocument),
+      "eucjp",
       `document: ${eucjpDocument.getText()}`,
     );
 
@@ -347,8 +363,8 @@ suite("Extension Test Suite", () => {
       "utf8",
     );
     assert.strictEqual(
-      eucjp.isEUCJPDocument(notEucjpDocument),
-      false,
+      detectEncoding(notEucjpDocument),
+      "other",
       `document: ${notEucjpDocument.getText()}`,
     );
   });
@@ -387,9 +403,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension
-          .replaceSpecificCharactersInBuffer(content.before)
-          .toString("hex"),
+        convertBytes(content.before, TARGETS).toString("hex"),
         content.after.toString("hex"),
         `content: ${content.before.toString("hex")}`,
       );
@@ -404,51 +418,41 @@ suite("Extension Test Suite", () => {
       // 全角チルダのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+        string: CHARS.fullwidthTilde,
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(
-          extension.FULLWIDTH_TILDE_CODE_POINT,
-        ).repeat(2),
+        string: CHARS.fullwidthTilde.repeat(2),
         count: 2,
       },
       // 全角チルダの前後にASCII文字
       // 文字列: "1～～2"
       {
-        string:
-          "1" +
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
-          "2",
+        string: "1" + CHARS.fullwidthTilde.repeat(2) + "2",
         count: 2,
       },
       // 波ダッシュのみ
       // 文字列: "～"
       {
-        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT),
+        string: CHARS.waveDash,
         count: 1,
       },
       // 文字列: "～～"
       {
-        string: String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
+        string: CHARS.waveDash.repeat(2),
         count: 2,
       },
       // 波ダッシュの前後にASCII文字
       // 文字列: "1～～2"
       {
-        string:
-          "1" +
-          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
-          "2",
+        string: "1" + CHARS.waveDash.repeat(2) + "2",
         count: 2,
       },
       // 全角チルダと波ダッシュの混在
       // 文字列: "～～～～"
       {
-        string:
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(2) +
-          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2),
+        string: CHARS.fullwidthTilde.repeat(2) + CHARS.waveDash.repeat(2),
         count: 4,
       },
       // 全角チルダと波ダッシュがない文字列
@@ -461,8 +465,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension.countSpecificCharacters(content.string)
-          .waveDashAndFullwidthTilde,
+        countTildes(content.string),
         content.count,
         `content: ${content.string}`,
       );
@@ -503,9 +506,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension
-          .replaceSpecificCharactersInBuffer(content.before)
-          .toString("hex"),
+        convertBytes(content.before, TARGETS).toString("hex"),
         content.after.toString("hex"),
         `content: ${content.before.toString("hex")}`,
       );
@@ -520,30 +521,23 @@ suite("Extension Test Suite", () => {
       // 全角NOのみ
       // 文字列: "№"
       {
-        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+        string: CHARS.numeroSign,
         count: 1,
       },
       // 文字列: "№№"
       {
-        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
-          2,
-        ),
+        string: CHARS.numeroSign.repeat(2),
         count: 2,
       },
       // 全角NOの前後にASCII文字
       // 文字列: "1№№2"
       {
-        string:
-          "1" +
-          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(2) +
-          "2",
+        string: "1" + CHARS.numeroSign.repeat(2) + "2",
         count: 2,
       },
       // 文字列: "№№"
       {
-        string: String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
-          2,
-        ),
+        string: CHARS.numeroSign.repeat(2),
         count: 2,
       },
       // 全角NOがない文字列
@@ -556,7 +550,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension.countSpecificCharacters(content.string).numeroSign,
+        countNumeroSigns(content.string),
         content.count,
         `content: ${content.string}`,
       );
@@ -579,9 +573,7 @@ suite("Extension Test Suite", () => {
 
     contents.forEach((content) => {
       assert.strictEqual(
-        extension
-          .replaceSpecificCharactersInBuffer(content.before)
-          .toString("hex"),
+        convertBytes(content.before, TARGETS).toString("hex"),
         content.after.toString("hex"),
         `content: ${content.before.toString("hex")}`,
       );
@@ -596,17 +588,20 @@ suite("Extension Test Suite", () => {
       // 文字列: "№№"
       {
         string:
-          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(1) +
-          String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(2) +
-          String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(4) +
-          String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(8),
+          CHARS.numeroSign.repeat(1) +
+          CHARS.waveDash.repeat(2) +
+          CHARS.numeroSign.repeat(4) +
+          CHARS.fullwidthTilde.repeat(8),
         count: { waveDashAndFullwidthTilde: 10, numeroSign: 5 },
       },
     ];
 
     contents.forEach((content) => {
       assert.deepStrictEqual(
-        extension.countSpecificCharacters(content.string),
+        {
+          waveDashAndFullwidthTilde: countTildes(content.string),
+          numeroSign: countNumeroSigns(content.string),
+        },
         content.count,
         `content: ${content.string}`,
       );
@@ -616,8 +611,8 @@ suite("Extension Test Suite", () => {
   /**
    * 設定のtrue/falseによって、全角チルダを波ダッシュに変換する機能の有効/無効を切り替える関数をテストする
    *
-   * replaceSpecificCharactersInBufferにはwaveDashUnify.enableConvertの設定値が反映されないため、
-   * このテストではreplaceSpecificCharactersInBufferによる変換結果への影響を確認しない
+   * readConfig().targetsにはwaveDashUnify.enableConvertの設定値が反映されないため、
+   * このテストではenableConvertの影響を確認しない
    *
    * waveDashUnify.enableConvertの設定値の影響確認は、統合テストで行う
    */
@@ -645,47 +640,41 @@ suite("Extension Test Suite", () => {
 
     await configuration(true, true);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      convertBytes(contents, readConfig().targets).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: true",
     );
 
     await configuration(true, false);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      convertBytes(contents, readConfig().targets).toString("hex"),
       Buffer.from([0xa1, 0xc1, 0x8f, 0xa2, 0xf1]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: true, numeroSignToNumeroSign: false",
     );
 
     await configuration(false, true);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      convertBytes(contents, readConfig().targets).toString("hex"),
       Buffer.from([0x8f, 0xa2, 0xb7, 0xad, 0xe2]).toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: true",
     );
 
     await configuration(false, false);
     assert.strictEqual(
-      extension.replaceSpecificCharactersInBuffer(contents).toString("hex"),
+      convertBytes(contents, readConfig().targets).toString("hex"),
       contents.toString("hex"),
       "enableConvert: true, fullwidthTildeToWaveDash: false, numeroSignToNumeroSign: false",
     );
   });
 
   /**
-   * containsConvertTargetCharactersによる早期returnがEUC-JPファイルを保存しても
-   * 内容を変えないことを検証するための共通ヘルパー
+   * 保存時の足切り(テキストに変換対象の文字が無ければ予約しない)で、
+   * EUC-JPファイルを保存しても内容が変わらないことを確かめる共通ヘルパー
    *
    * ファイルを開いた直後はdirtyでないため、TextDocument.save()を呼んでも
    * 何も起きず(実際の保存もonDidSaveTextDocumentの発火もされない)、保存経路を
    * 検証したことにならない。末尾に1文字挿入してすぐ削除することで、内容は
    * 変えずにdirty→cleanの実際の保存を発生させてからファイルの内容を比較する
-   *
-   * ファイルの内容比較(保存経路)に加えて、containsConvertTargetCharacters自体の
-   * 戻り値もfalseであることを直接確認する。replaceSpecificCharactersInBufferは
-   * 変換対象の文字ごとに設定を再確認する独立したガードを持つため、
-   * containsConvertTargetCharacters側の設定判定だけが壊れても保存結果の比較だけでは
-   * 検出できない場合がある(実際に確認済み)。戻り値を直接見ることでその抜け穴を塞ぐ
    *
    * @param contents 保存対象のファイルの内容(変換が起きないことを期待する内容)
    * @param expectedText contentsをEUC-JPとしてデコードした文字列。前提条件
@@ -738,12 +727,6 @@ suite("Extension Test Suite", () => {
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
 
-    assert.strictEqual(
-      extension.containsConvertTargetCharacters(document),
-      false,
-      `containsConvertTargetCharactersがtrueを返した: ${message}`,
-    );
-
     // dirty→cleanの実際の保存を発生させるため、末尾に1文字挿入してすぐ削除する
     // (内容自体は変えない)
     await textEditor.edit((editBuilder) => {
@@ -768,7 +751,7 @@ suite("Extension Test Suite", () => {
     // 直後に読むと、変換がまだ実行されていないだけで「変化しなかった」と
     // 誤判定してしまい、この比較が実質的に何も検証しないことになる
     await new Promise((resolve) =>
-      setTimeout(resolve, extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100),
+      setTimeout(resolve, SAVE_DEBOUNCE_MS * 2 + 100),
     );
 
     const actual = fs.readFileSync(tmpFile.name);
@@ -780,8 +763,7 @@ suite("Extension Test Suite", () => {
   }
 
   /**
-   * 変換対象文字がドキュメントに1つも無い場合、containsConvertTargetCharactersの
-   * 早期returnによって保存経路がファイルの内容を一切変えないことを確認する
+   * 変換対象文字がドキュメントに1つも無い場合、保存時の足切りによって保存経路がファイルの内容を一切変えないことを確認する
    */
   test("save EUC-JP file without target characters leaves it unchanged", async () => {
     // 変換対象文字を含まないEUC-JPの文字列
@@ -816,7 +798,7 @@ suite("Extension Test Suite", () => {
     ]);
     await assertSaveLeavesFileUnchanged(
       fullwidthTildeOnly,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + CHARS.fullwidthTilde,
       false,
       true,
       "fullwidthTildeToWaveDash: falseなのに、全角チルダのみのファイルが保存によって変化した",
@@ -829,7 +811,7 @@ suite("Extension Test Suite", () => {
     ]);
     await assertSaveLeavesFileUnchanged(
       numeroSignOnly,
-      "ああああ" + String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+      "ああああ" + CHARS.numeroSign,
       true,
       false,
       "numeroSignToNumeroSign: falseなのに、全角NOのみのファイルが保存によって変化した",
@@ -837,7 +819,7 @@ suite("Extension Test Suite", () => {
   });
 
   /**
-   * containsConvertTargetCharactersの早期returnが安全な理由を固定するテスト
+   * 保存時の足切り(テキストでの判定)が安全な理由を固定するテスト
    *
    * この判定はdocument.getText()に全角チルダ(U+FF5E)・全角NO(U+2116)が含まれるかで
    * 行うが、これは「保存直後のテキストが真実源だから」ではなく、EUC-JPで
@@ -885,20 +867,13 @@ suite("Extension Test Suite", () => {
     );
     assertDecodedAsEucjp(
       waveDashDocument,
-      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "ああああ" + CHARS.fullwidthTilde,
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
     assert.strictEqual(
-      waveDashDocument
-        .getText()
-        .includes(String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT)),
+      waveDashDocument.getText().includes(CHARS.fullwidthTilde),
       true,
       "波ダッシュ(0xA1 0xC1)がU+FF5Eにデコードされなかった",
-    );
-    assert.strictEqual(
-      extension.containsConvertTargetCharacters(waveDashDocument),
-      true,
-      "既に変換済みの波ダッシュが判定で取りこぼされた",
     );
 
     // 全角NO(0xAD 0xE2)のみ
@@ -913,189 +888,73 @@ suite("Extension Test Suite", () => {
     );
     assertDecodedAsEucjp(
       numeroSignDocument,
-      "ああああ" + String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT),
+      "ああああ" + CHARS.numeroSign,
       "前提条件エラー: ファイルがEUC-JPと判定されなかった",
     );
     assert.strictEqual(
-      numeroSignDocument
-        .getText()
-        .includes(String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT)),
+      numeroSignDocument.getText().includes(CHARS.numeroSign),
       true,
       "全角NO(0xAD 0xE2)がU+2116にデコードされなかった",
-    );
-    assert.strictEqual(
-      extension.containsConvertTargetCharacters(numeroSignDocument),
-      true,
-      "既に変換済みの全角NOが判定で取りこぼされた",
     );
   });
 
   /**
-   * ステータスバーの初期化を行う関数をテストする
-   * NOTE: テスト対象のsetupStatusBarItem()はグローバル変数の初期化を行う関数なのでテストしない
+   * 変換の有効/無効でステータスアイコンが変わることを確かめる
    */
-
-  /**
-   * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効を表示する関数をテストする
-   */
-  test("update status bar item", async () => {
-    // アクティブなテキストエディタを作り、そのテキストエディタのステータスバーに表示される項目を取得する
-    const document = await vscode.workspace.openTextDocument({
-      language: "plaintext",
-      content: "",
-    });
-
-    await vscode.window.showTextDocument(document);
-
-    const statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-    );
-
-    const config = vscode.workspace.getConfiguration("waveDashUnify");
-
-    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がtrueのとき、先頭に"$(pass-filled)"が表示されることを確認する"
-    await config.update(
-      "enableConvert",
-      true,
-      vscode.ConfigurationTarget.Global,
-    );
-
-    extension.updateStatusBarItem(statusBarItem);
-
-    const expectedEnableStatusIcon = "$(pass-filled)";
+  test("render status icon", () => {
     assert.strictEqual(
-      statusBarItem.text.startsWith(expectedEnableStatusIcon),
-      true,
-      expectedEnableStatusIcon,
+      renderStatusText("${statusIcon}", true, ""),
+      "$(pass-filled)",
     );
-
-    const expectedEnableStatusTooltip =
-      "Wave Dash Unify is enabled (click to disable)";
-    assert.strictEqual(statusBarItem.tooltip, expectedEnableStatusTooltip);
-
-    // 有効なときは、クリックで無効にする
-    assert.strictEqual(statusBarItem.command, "waveDashUnify.disableConvert");
-
-    // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき、先頭に"$(error)"が表示されることを確認する
-    await config.update(
-      "enableConvert",
-      false,
-      vscode.ConfigurationTarget.Global,
-    );
-
-    extension.updateStatusBarItem(statusBarItem);
-
-    const expectedDisableStatusIcon = "$(error)";
     assert.strictEqual(
-      statusBarItem.text.startsWith(expectedDisableStatusIcon),
-      true,
-      expectedDisableStatusIcon,
+      renderStatusText("${statusIcon}", false, ""),
+      "$(error)",
     );
-
-    const expectedDisableStatusTooltip =
-      "Wave Dash Unify is disabled (click to enable)";
-    assert.strictEqual(statusBarItem.tooltip, expectedDisableStatusTooltip);
-
-    // 無効なときは、クリックで有効にする
-    assert.strictEqual(statusBarItem.command, "waveDashUnify.enableConvert");
   });
 
   /**
    * ステータスバー項目のクリックで、有効と無効が交互に切り替わることを確かめる
    *
-   * クリックと同じように、項目に設定されたコマンドを実行する
+   * クリックと同じように、そのときの状態で項目に設定されるコマンドを実行する
    */
-  test("status bar item click toggles convert", async () => {
-    const document = await vscode.workspace.openTextDocument({
-      language: "plaintext",
-      content: "",
-    });
-    await vscode.window.showTextDocument(document);
+  test("status bar click toggles convert", async () => {
+    await vscode.workspace
+      .getConfiguration("waveDashUnify")
+      .update("enableConvert", true, vscode.ConfigurationTarget.Global);
 
-    const statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-    );
+    await vscode.commands.executeCommand(clickCommand(readConfig().enabled));
+    assert.strictEqual(readConfig().enabled, false, "1回目のクリック");
 
-    /** 表示を更新してから、項目のコマンドを実行する(= クリック) */
-    async function click() {
-      extension.updateStatusBarItem(statusBarItem);
-      const command = statusBarItem.command;
-      assert.strictEqual(typeof command, "string");
-      await vscode.commands.executeCommand(command as string);
-    }
-
-    try {
-      await vscode.workspace
-        .getConfiguration("waveDashUnify")
-        .update("enableConvert", true, vscode.ConfigurationTarget.Global);
-
-      await click();
-      assert.strictEqual(
-        extension.isConvertEnabled(),
-        false,
-        "1回目のクリック",
-      );
-
-      await click();
-      assert.strictEqual(extension.isConvertEnabled(), true, "2回目のクリック");
-    } finally {
-      statusBarItem.dispose();
-    }
+    await vscode.commands.executeCommand(clickCommand(readConfig().enabled));
+    assert.strictEqual(readConfig().enabled, true, "2回目のクリック");
   });
-
-  /**
-   * アクティブなテキストエディタがファイルではない場合は、ステータスバーの表示領域のスペースを空けるために非表示にする関数をテストする
-   * NOTE: StatusBarItem.show()とStatusBarItem.hide()を実行したことの確認はできないため、テストしない
-   */
 
   /**
    * 全角チルダと波ダッシュの個数を数えた数がステータスバーに表示されることを確認する
    */
-  test("count fullwidth tilde, wave dash, and numero sign in active text editor", async () => {
+  test("render counts with statusBarFormat", async () => {
     const waveDashCount = 3;
     const fullwidthTildeCount = 2;
     const numeroSignCount = 4;
 
-    // アクティブなテキストエディタを作り、そのテキストエディタのステータスバーに表示される項目を取得する
+    // 数える対象のドキュメント
     const document = await vscode.workspace.openTextDocument({
       language: "plaintext",
       content:
-        String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT).repeat(
-          fullwidthTildeCount,
-        ) +
-        String.fromCodePoint(extension.WAVEDASH_CODE_POINT).repeat(
-          waveDashCount,
-        ) +
-        String.fromCodePoint(extension.NUMERO_SIGN_CODE_POINT).repeat(
-          numeroSignCount,
-        ),
+        CHARS.fullwidthTilde.repeat(fullwidthTildeCount) +
+        CHARS.waveDash.repeat(waveDashCount) +
+        CHARS.numeroSign.repeat(numeroSignCount),
     });
 
-    await vscode.window.showTextDocument(document);
-
-    const statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-    );
-
-    // NOTE: このテストでは拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値は関係ないが、
-    //       ステータスバーに表示される文字列が正しいことを確認するために、
-    //       拡張機能の動作設定(ID: waveDashUnify.enableConvert)の値をtrueにする
     const config = vscode.workspace.getConfiguration("waveDashUnify");
-    await config.update(
-      "enableConvert",
-      true,
-      vscode.ConfigurationTarget.Global,
-    );
 
-    extension.updateStatusBarItem(statusBarItem);
+    /** 今の設定の書式で表示文字列を作る */
+    const render = () =>
+      renderStatusText(readConfig().statusBarFormat, true, document.getText());
 
     const expectedText = `$(pass-filled) ～: ${(waveDashCount + fullwidthTildeCount).toString()}, №: ${numeroSignCount.toString()}`;
     // ステータスバーに表示される文字列が正しいことを確認する
-    assert.strictEqual(
-      statusBarItem.text,
-      expectedText,
-      "statusBarText: default",
-    );
+    assert.strictEqual(render(), expectedText, "statusBarText: default");
 
     // formatが空文字のとき、ステータスバーに表示されないことを確認する
     await config.update(
@@ -1103,8 +962,7 @@ suite("Extension Test Suite", () => {
       "",
       vscode.ConfigurationTarget.Global,
     );
-    extension.updateStatusBarItem(statusBarItem);
-    assert.strictEqual(statusBarItem.text, "", "statusBarFormat: empty");
+    assert.strictEqual(render(), "", "statusBarFormat: empty");
 
     // formatが任意の文字列の時、ステータスバーに表示されることを確認する
     // 変数が無くても意図通りの表示されることを確認するために、statusBarIconは省略する
@@ -1113,10 +971,9 @@ suite("Extension Test Suite", () => {
       "Wave Dash Unify: №(${numeroSignCount}) ～(${waveDashAndFullwidthTildeCount})",
       vscode.ConfigurationTarget.Global,
     );
-    extension.updateStatusBarItem(statusBarItem);
     const expectedTextWithFormat = `Wave Dash Unify: №(${numeroSignCount.toString()}) ～(${(waveDashCount + fullwidthTildeCount).toString()})`;
     assert.strictEqual(
-      statusBarItem.text,
+      render(),
       expectedTextWithFormat,
       "statusBarFormat: custom",
     );
@@ -1127,15 +984,10 @@ suite("Extension Test Suite", () => {
       "${numeroSignCount}/${numeroSignCount} ${statusIcon}${statusIcon}",
       vscode.ConfigurationTarget.Global,
     );
-    extension.updateStatusBarItem(statusBarItem);
     assert.strictEqual(
-      statusBarItem.text,
+      render(),
       `${numeroSignCount.toString()}/${numeroSignCount.toString()} $(pass-filled)$(pass-filled)`,
       "statusBarFormat: repeated variables",
     );
-
-    vscode.window.showQuickPick(["OK"], {
-      placeHolder: "Please check the status bar",
-    });
   });
 });
