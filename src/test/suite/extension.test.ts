@@ -969,8 +969,12 @@ suite("Extension Test Suite", () => {
       expectedEnableStatusIcon,
     );
 
-    const expectedEnableStatusTooltip = "Wave Dash Unify is enabled";
+    const expectedEnableStatusTooltip =
+      "Wave Dash Unify is enabled (click to disable)";
     assert.strictEqual(statusBarItem.tooltip, expectedEnableStatusTooltip);
+
+    // 有効なときは、クリックで無効にする
+    assert.strictEqual(statusBarItem.command, "waveDashUnify.disableConvert");
 
     // 拡張機能の動作設定(ID: waveDashUnify.enableConvert)がfalseのとき、先頭に"$(error)"が表示されることを確認する
     await config.update(
@@ -988,8 +992,12 @@ suite("Extension Test Suite", () => {
       expectedDisableStatusIcon,
     );
 
-    const expectedDisableStatusTooltip = "Wave Dash Unify is disabled";
+    const expectedDisableStatusTooltip =
+      "Wave Dash Unify is disabled (click to enable)";
     assert.strictEqual(statusBarItem.tooltip, expectedDisableStatusTooltip);
+
+    // 無効なときは、クリックで有効にする
+    assert.strictEqual(statusBarItem.command, "waveDashUnify.enableConvert");
   });
 
   /**
@@ -1087,8 +1095,4 @@ suite("Extension Test Suite", () => {
       placeHolder: "Please check the status bar",
     });
   });
-
-  // TODO ステータスバーのクリック時に実行されるコマンドのテストを行う
-  // test("status bar item click", () => {
-  // });
 });

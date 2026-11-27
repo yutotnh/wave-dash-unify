@@ -147,49 +147,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         updateStatusBarItem(statusBarItem);
       }),
-
-      vscode.commands.registerCommand(
-        "waveDashUnify.SelectEnableOrDisable",
-        () => {
-          const quickPick = vscode.window.createQuickPick();
-          quickPick.items = [
-            {
-              label: "Enable convert",
-              description: "Enable convert",
-            },
-            {
-              label: "Disable convert",
-              description: "Disable convert",
-            },
-          ];
-
-          quickPick.onDidChangeSelection((selection) => {
-            if (selection.length === 0) {
-              return;
-            }
-
-            const selectedItem = selection[0];
-
-            if (selectedItem === undefined) {
-              return;
-            }
-
-            if (selectedItem.label === "Enable convert") {
-              vscode.commands.executeCommand("waveDashUnify.enableConvert");
-            } else if (selectedItem.label === "Disable convert") {
-              vscode.commands.executeCommand("waveDashUnify.disableConvert");
-            }
-
-            quickPick.hide();
-          });
-
-          quickPick.onDidHide(() => {
-            quickPick.dispose();
-          });
-
-          quickPick.show();
-        },
-      ),
     ),
   );
 }
@@ -666,7 +623,6 @@ export function setupStatusBarItem() {
   );
 
   statusBarItem.name = "Wave Dash Unify";
-  statusBarItem.command = "waveDashUnify.SelectEnableOrDisable";
 
   updateStatusBarItem(statusBarItem);
 }
@@ -744,9 +700,13 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
   statusBarItem.show();
 
   const isEnabled = isConvertEnabled();
+  // クリックで有効と無効を切り替える
+  statusBarItem.command = isEnabled
+    ? "waveDashUnify.disableConvert"
+    : "waveDashUnify.enableConvert";
   statusBarItem.tooltip = isEnabled
-    ? "Wave Dash Unify is enabled"
-    : "Wave Dash Unify is disabled";
+    ? "Wave Dash Unify is enabled (click to disable)"
+    : "Wave Dash Unify is disabled (click to enable)";
 
   const count = countSpecificCharacters(activeEditor.document.getText());
 
