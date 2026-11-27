@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { parseArgs } from "node:util";
 
@@ -52,9 +54,15 @@ async function main() {
     const extensionTestsPath = path.resolve(__dirname, "./suite/index");
 
     const { vscodeVersion } = parseCliArgs();
+    // ワークスペース内のファイルだけが受ける挙動(ファイルウォッチャーによる再読込)を
+    // テストするため、空の一時フォルダをワークスペースとして開く
+    const workspacePath = fs.mkdtempSync(
+      path.join(os.tmpdir(), "wave-dash-unify-test-"),
+    );
     const options: TestOptions = {
       extensionDevelopmentPath,
       extensionTestsPath,
+      launchArgs: [workspacePath],
     };
     if (vscodeVersion) {
       // 指定バージョンのキャッシュがあれば再利用し、なければダウンロード

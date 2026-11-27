@@ -74,8 +74,8 @@ const statusBarUpdateDebouncer = createDebouncer(() => {
 }, STATUS_BAR_UPDATE_DEBOUNCE_MS);
 
 // 保存済みで変換待ちのドキュメント(キー: ドキュメントのURI文字列)。
-// postponed: trueは「dirtyだった、またはアクティブエディタでなかったため
-// 先送りした」状態で、次の保存・アクティブ化・クローズ・deactivateのいずれかで
+// postponed: trueは「dirtyだった、または監視外のファイルがアクティブエディタで
+// なかったため先送りした」状態で、次の保存・アクティブ化・クローズ・deactivateのいずれかで
 // 変換される(判定はrunScheduledConversionを参照)
 const pendingConversions = new Map<
   string,
@@ -87,6 +87,10 @@ const pendingConversions = new Map<
 
 // 保存後変換のデバウンサ(キー: ドキュメントのURI文字列)
 const saveConversionDebouncers = new Map<string, Debouncer>();
+
+// 非アクティブなまま変換し、まだrevertで同期していないドキュメント(キー: URI文字列)。
+// 次にアクティブになった時に同期する(runScheduledConversionの3を参照)
+const unsyncedDocuments = new Set<string>();
 
 export function activate(context: vscode.ExtensionContext) {
   setupStatusBarItem();
@@ -120,6 +124,7 @@ export function activate(context: vscode.ExtensionContext) {
       // 変換待ちのままドキュメントが破棄された場合は、その場で変換する
       // (モデルが存在しなくなるためetagの不整合が起きない)
       vscode.workspace.onDidCloseTextDocument((document) => {
+        unsyncedDocuments.delete(document.uri.toString());
         flushPendingConversion(document.uri.toString());
       }),
       vscode.window.onDidChangeActiveTextEditor((editor) => {
@@ -302,9 +307,12 @@ function scheduleSaveConversion(document: vscode.TextDocument) {
  *    (モデルが無くetagの不整合が起きない)
  * 2. dirty(未保存の編集がある)        -> 先送り
  *    (issue #13。SAVE_CONVERSION_DEBOUNCE_MS参照)
- * 3. アクティブエディタではない        -> 先送り
- *    (revertがアクティブエディタにしか効かないため。非アクティブなまま変換すると
- *    etagが同期されずissue #13が再発することを実測で確認済み。詳細はsyncEditorWithConvertedFile参照)
+ * 3. アクティブエディタではない
+ *    - VS Codeがファイルを監視している(isWatchedByVSCode) -> 変換する
+ *      (ファイルウォッチャーが背景タブも再読込してetagを同期する。念のため、
+ *      次にアクティブになった時にもrevertする)
+ *    - 監視していない(ワークスペース外など) -> 先送り
+ *      (revertはアクティブエディタにしか効かず、etagが同期されないため。issue #13)
  * 4. アクティブかつ非dirty            -> 変換 + revertでetagを同期する
  *
  * 2, 3で先送りしたものは、次の保存(再スケジュール)・onDidChangeActiveTextEditorでの
@@ -327,10 +335,9 @@ function runScheduledConversion(key: string) {
     return;
   }
 
-  if (
-    document.isDirty ||
-    vscode.window.activeTextEditor?.document !== document
-  ) {
+  const isActive = vscode.window.activeTextEditor?.document === document;
+
+  if (document.isDirty || (!isActive && !isWatchedByVSCode(document))) {
     // 変換待ちの印だけを残して先送りする
     pendingConversions.set(key, { document, postponed: true });
     return;
@@ -338,12 +345,16 @@ function runScheduledConversion(key: string) {
 
   pendingConversions.delete(key);
 
-  const written = replaceSpecificCharacters(document);
+  if (!replaceSpecificCharacters(document)) {
+    return;
+  }
 
-  if (written) {
+  if (isActive) {
     // awaitできない(呼び出し元がDebouncerのコールバック)ため、
     // 内部でエラーを処理させる。revertが失敗しても追加のリカバリ手段は無い
     void syncEditorWithConvertedFile(document);
+  } else {
+    unsyncedDocuments.add(key);
   }
 }
 
@@ -368,12 +379,47 @@ function resumePendingConversionIfActive(
   }
 
   const key = document.uri.toString();
+
+  if (unsyncedDocuments.delete(key)) {
+    void syncEditorWithConvertedFile(document);
+  }
+
   const pending = pendingConversions.get(key);
   if (!pending?.postponed) {
     return;
   }
 
   runScheduledConversion(key);
+}
+
+/**
+ * VS Codeのファイルウォッチャーがこのファイルを監視しているかを判定する
+ *
+ * 監視されていれば、非アクティブな背景タブでもディスクの書き換えが再読込され、
+ * etagが同期される(ワークスペース外のファイルは再読込されないことを実測で確認済み)
+ *
+ * @param document 判定対象のドキュメント
+ * @returns `true`: ワークスペース内で、files.watcherExcludeにも該当しない
+ */
+function isWatchedByVSCode(document: vscode.TextDocument): boolean {
+  const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+  if (!folder) {
+    return false;
+  }
+
+  const excludes =
+    vscode.workspace
+      .getConfiguration("files", document.uri)
+      .get<Record<string, boolean>>("watcherExclude") ?? {};
+
+  return !Object.entries(excludes).some(
+    ([pattern, excluded]) =>
+      excluded &&
+      vscode.languages.match(
+        { pattern: new vscode.RelativePattern(folder, pattern) },
+        document,
+      ) > 0,
+  );
 }
 
 /**
@@ -446,12 +492,10 @@ function flushPendingConversion(key: string, convertsEvenIfDirty = false) {
  * 変換前と同一のテキストになるため、revertしてもエディタの内容・カーソル位置・
  * undoスタックには影響しない(VS CodeのupdateModelは内容が同一の場合何もしない)
  *
- * revertコマンドはアクティブエディタにしか作用しない。かつ非アクティブな背景タブの
- * 非dirtyドキュメントはディスクを書き換えてもVS Codeのファイルウォッチャーによる
- * 自動再読込が働かない(実測で確認済み。15秒待ってもリロードされない)。そのためこの
- * 関数は「対象ドキュメントがアクティブかつ非dirty」の場合にのみ呼び出す前提としている
- * (呼び出し元のrunScheduledConversionを参照)。非アクティブな場合にetagを同期する
- * 手段は無いため、変換自体をrunScheduledConversionの時点で先送りする方針にしている
+ * revertコマンドはアクティブエディタにしか作用しないため、この関数は「対象ドキュメントが
+ * アクティブかつ非dirty」の場合にのみ呼び出す前提としている。非アクティブな背景タブは
+ * VS Codeのファイルウォッチャーが監視していれば再読込されるが、ワークスペース外の
+ * ファイルは再読込されない(実測で確認済み。runScheduledConversionの3を参照)
  *
  * @param document 変換したファイルのドキュメント
  */
