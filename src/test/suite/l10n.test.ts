@@ -69,16 +69,11 @@ suite("l10n", () => {
     });
   });
 
+  // 日本語で起動したVS Codeでの確認(l10n.locale.test.ts)では区別できない分岐だけを、
+  // vscode相当を差し替えて確かめる
   suite("setupL10n", () => {
     teardown(() => {
       l10n.config({ contents: {} });
-    });
-
-    test("本物のvscodeでも例外を投げない", () => {
-      // CIの1.66.0では自前の読み込み、1.100.0ではvscode.l10n.bundleの経路を通る
-      assert.doesNotThrow(() => {
-        setupL10n(extensionPath);
-      });
     });
 
     test("1.73.0以降はvscode.l10n.bundleを使い、l10n/は読まない", () => {
@@ -99,15 +94,6 @@ suite("l10n", () => {
       });
 
       assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
-    });
-
-    test("1.73.0未満は表示言語に合わせてl10n/を読む", () => {
-      setupL10n(extensionPath, { env: { language: "ja" } });
-
-      assert.strictEqual(
-        l10n.t(ENABLED_TOOLTIP),
-        "Wave Dash Unify は有効です (クリックで無効化)",
-      );
     });
   });
 });
