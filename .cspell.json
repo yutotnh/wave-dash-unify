@@ -16,6 +16,7 @@
     "Autobuild",
     "autonumber",
     "buildscript",
+    "CEINTL",
     "codeql",
     "dbaeumer",
     "dearmor",
