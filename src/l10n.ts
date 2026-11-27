@@ -4,24 +4,47 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 /**
- * 表示言語に合う翻訳バンドルを読み込む。最初の`l10n.t()`より前に呼ぶこと
+ * `vscode.l10n`のうち使う部分の型
  *
- * 公式の`vscode.l10n`はVS Code 1.73.0で追加されたAPIで、最低対応の1.66.0では使えない。
- * そのため`l10n/`のバンドルを自分で選び、`@vscode/l10n`に渡す。
- * `@vscode/l10n`のREADMEはメインプロセスでの利用を勧めていないが、それは1.73.0以上で
- * VS Codeが訳を読み込むためで、その仕組みが無い1.73.0未満には当てはまらない。
+ * VS Code 1.73.0で追加されたAPIで、`@types/vscode`(1.66.0)には無いため自分で書く
+ */
+interface VscodeL10n {
+  bundle: l10n.l10nJsonFormat | undefined;
+}
+
+/**
+ * 表示言語の訳を`@vscode/l10n`に読み込む。最初の`l10n.t()`より前に呼ぶこと
+ *
+ * - VS Code 1.73.0以降: package.jsonの`l10n`を見てVS Code自身が読み込んだ
+ *   `vscode.l10n.bundle`を渡す(`@vscode/l10n`のREADMEが勧める使い方)
+ * - VS Code 1.73.0未満: `vscode.l10n`が無いため、`loadBundleFile`で自分で読む
+ *
  * `engines.vscode`を1.73.0以上に上げたら、このファイルと`@vscode/l10n`を消し、
  * `l10n.t`を`vscode.l10n.t`に置き換えればよい
  *
- * 対応するバンドルが無い、または読めない言語では、`l10n.t()`は英語の原文を返す
+ * @param extensionPath 拡張機能のインストール先
+ */
+export function setupL10n(extensionPath: string) {
+  const vscodeL10n = (vscode as unknown as { l10n?: VscodeL10n }).l10n;
+
+  if (vscodeL10n === undefined) {
+    loadBundleFile(extensionPath, vscode.env.language);
+    return;
+  }
+
+  // 訳の無い言語(英語を含む)ではbundleがundefinedになり、英語の原文を表示する
+  l10n.config({ contents: vscodeL10n.bundle ?? {} });
+}
+
+/**
+ * `l10n/`から表示言語のバンドルを探して読み込む(VS Code 1.73.0未満用)
+ *
+ * 対応するバンドルが無い、または読めない場合は、`l10n.t()`が英語の原文を返す
  *
  * @param extensionPath 拡張機能のインストール先
- * @param language 表示言語(テスト用。省略時は`vscode.env.language`)
+ * @param language VS Codeの表示言語(`vscode.env.language`)
  */
-export function setupL10n(
-  extensionPath: string,
-  language: string = vscode.env.language,
-) {
+export function loadBundleFile(extensionPath: string, language: string) {
   // 前回読み込んだバンドルを残さない
   l10n.config({ contents: {} });
 

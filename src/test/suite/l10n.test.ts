@@ -3,7 +3,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as tmp from "tmp";
-import { bundleFileNames, setupL10n } from "../../l10n";
+import { bundleFileNames, loadBundleFile, setupL10n } from "../../l10n";
 
 // out/test/suite から見た拡張機能のルート
 const extensionPath = path.resolve(__dirname, "../../../");
@@ -29,14 +29,14 @@ suite("l10n", () => {
     ]);
   });
 
-  suite("setupL10n", () => {
+  suite("loadBundleFile", () => {
     // @vscode/l10nの状態はモジュール全体で共有されるため、他のテストに残さない
     teardown(() => {
       l10n.config({ contents: {} });
     });
 
     test("日本語では同梱の訳を返す", () => {
-      setupL10n(extensionPath, "ja");
+      loadBundleFile(extensionPath, "ja");
 
       assert.strictEqual(
         l10n.t(ENABLED_TOOLTIP),
@@ -45,8 +45,8 @@ suite("l10n", () => {
     });
 
     test("バンドルの無い言語では英語の原文を返す", () => {
-      setupL10n(extensionPath, "ja");
-      setupL10n(extensionPath, "en");
+      loadBundleFile(extensionPath, "ja");
+      loadBundleFile(extensionPath, "en");
 
       assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
     });
@@ -60,12 +60,23 @@ suite("l10n", () => {
           "{ broken",
         );
 
-        setupL10n(dir.name, "ja");
+        loadBundleFile(dir.name, "ja");
 
         assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
       } finally {
         dir.removeCallback();
       }
     });
+  });
+
+  test("setupL10nはどのバージョンのVS Codeでも例外を投げない", () => {
+    // 1.73.0未満はloadBundleFile、以降はvscode.l10n.bundleの経路を通る
+    try {
+      assert.doesNotThrow(() => {
+        setupL10n(extensionPath);
+      });
+    } finally {
+      l10n.config({ contents: {} });
+    }
   });
 });

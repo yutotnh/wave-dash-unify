@@ -38,7 +38,7 @@ wave-dash-unifyは単一パッケージのTypeScript製VS Code拡張機能。本
 - `package.json`の文言: `%key%`にして`package.nls.json`と`package.nls.ja.json`に書く
 - コード内の文言: `@vscode/l10n`の`l10n.t("English message")`を使い、`npm run l10n-export`で`l10n/bundle.l10n.json`を生成してから`l10n/bundle.l10n.ja.json`に訳を書く。可変部分は連結せず`{0}`で渡す
 - `npm run l10n-check`(`npm run lint`に含まれ、CIでも実行される)が、訳の漏れ・生成し忘れ・プレースホルダの不一致を検出する
-- 公式の`vscode.l10n`はVS Code 1.73.0以降のため使えない(`src/l10n.ts`のコメント参照)
+- 公式の`vscode.l10n`はVS Code 1.73.0以降のため、1.73.0未満では訳を自分で読み込む(`src/l10n.ts`のコメント参照)
 - 訳語はVS Code本体の日本語訳に合わせる(例: 「ステータス バー」)
 
 ## パフォーマンスに関する変更
