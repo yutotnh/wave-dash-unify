@@ -8,7 +8,7 @@ import {
   TARGETS,
 } from "../../eucjp";
 import { SAVE_DEBOUNCE_MS } from "../../saveConverter";
-import { renderStatusText } from "../../statusBar";
+import { clickCommand, renderStatusText } from "../../statusBar";
 import * as fs from "fs";
 import * as tmp from "tmp";
 
@@ -910,6 +910,23 @@ suite("Extension Test Suite", () => {
       renderStatusText("${statusIcon}", false, ""),
       "$(error)",
     );
+  });
+
+  /**
+   * ステータスバー項目のクリックで、有効と無効が交互に切り替わることを確かめる
+   *
+   * クリックと同じように、そのときの状態で項目に設定されるコマンドを実行する
+   */
+  test("status bar click toggles convert", async () => {
+    await vscode.workspace
+      .getConfiguration("waveDashUnify")
+      .update("enableConvert", true, vscode.ConfigurationTarget.Global);
+
+    await vscode.commands.executeCommand(clickCommand(readConfig().enabled));
+    assert.strictEqual(readConfig().enabled, false, "1回目のクリック");
+
+    await vscode.commands.executeCommand(clickCommand(readConfig().enabled));
+    assert.strictEqual(readConfig().enabled, true, "2回目のクリック");
   });
 
   /**

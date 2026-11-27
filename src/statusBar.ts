@@ -39,10 +39,7 @@ export function createStatusBar(): StatusBar {
       enabled,
       editor.document.getText(),
     );
-    // クリックで有効と無効を切り替える
-    item.command = enabled
-      ? "waveDashUnify.disableConvert"
-      : "waveDashUnify.enableConvert";
+    item.command = clickCommand(enabled);
     item.tooltip = enabled
       ? "Wave Dash Unify is enabled (click to disable)"
       : "Wave Dash Unify is disabled (click to enable)";
@@ -61,6 +58,13 @@ export function createStatusBar(): StatusBar {
       item.dispose();
     },
   };
+}
+
+/** クリックで実行するコマンド。有効と無効を切り替える */
+export function clickCommand(enabled: boolean): string {
+  return enabled
+    ? "waveDashUnify.disableConvert"
+    : "waveDashUnify.enableConvert";
 }
 
 /**
