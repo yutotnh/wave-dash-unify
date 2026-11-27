@@ -1001,6 +1001,49 @@ suite("Extension Test Suite", () => {
   });
 
   /**
+   * ステータスバー項目のクリックで、有効と無効が交互に切り替わることを確かめる
+   *
+   * クリックと同じように、項目に設定されたコマンドを実行する
+   */
+  test("status bar item click toggles convert", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      language: "plaintext",
+      content: "",
+    });
+    await vscode.window.showTextDocument(document);
+
+    const statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+    );
+
+    /** 表示を更新してから、項目のコマンドを実行する(= クリック) */
+    async function click() {
+      extension.updateStatusBarItem(statusBarItem);
+      const command = statusBarItem.command;
+      assert.strictEqual(typeof command, "string");
+      await vscode.commands.executeCommand(command as string);
+    }
+
+    try {
+      await vscode.workspace
+        .getConfiguration("waveDashUnify")
+        .update("enableConvert", true, vscode.ConfigurationTarget.Global);
+
+      await click();
+      assert.strictEqual(
+        extension.isConvertEnabled(),
+        false,
+        "1回目のクリック",
+      );
+
+      await click();
+      assert.strictEqual(extension.isConvertEnabled(), true, "2回目のクリック");
+    } finally {
+      statusBarItem.dispose();
+    }
+  });
+
+  /**
    * アクティブなテキストエディタがファイルではない場合は、ステータスバーの表示領域のスペースを空けるために非表示にする関数をテストする
    * NOTE: StatusBarItem.show()とStatusBarItem.hide()を実行したことの確認はできないため、テストしない
    */
