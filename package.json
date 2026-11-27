@@ -1,7 +1,7 @@
 {
   "name": "wave-dash-unify",
   "displayName": "Wave Dash Unify",
-  "description": "Automatically converts both FULLWIDTH TILDE and WAVE DASH characters to the WAVE DASH character",
+  "description": "%description%",
   "version": "0.5.0",
   "publisher": "yutotnh",
   "engines": {
@@ -24,6 +24,7 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "commands": [
       {
@@ -76,7 +77,9 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src --max-warnings 0",
+    "lint": "eslint src --max-warnings 0 && npm run l10n-check",
+    "l10n-export": "vscode-l10n-dev export --outDir ./l10n ./src",
+    "l10n-check": "node scripts/check-l10n.js",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "test": "node ./out/test/runTest.js",
@@ -90,6 +93,7 @@
     "@types/vscode": "1.66.0",
     "@typescript-eslint/eslint-plugin": "^8.74.0",
     "@typescript-eslint/parser": "^8.72.2",
+    "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^4.1.1",
     "cspell": "^10.5.2",
@@ -110,5 +114,8 @@
       "minimatch": "^10.2.5",
       "serialize-javascript": "^7.0.7"
     }
+  },
+  "dependencies": {
+    "@vscode/l10n": "^0.0.18"
   }
 }

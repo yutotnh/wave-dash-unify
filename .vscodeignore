@@ -21,3 +21,4 @@ esbuild.js
 AGENTS.md
 CLAUDE.md
 .dockerignore
+scripts/**

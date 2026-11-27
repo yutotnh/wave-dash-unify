@@ -1,4 +1,5 @@
 {
+  "description": "全角チルダと波ダッシュを自動で波ダッシュに統一します",
   "waveDashUnify.enableConvert.title": "文字の変換を有効にする",
   "waveDashUnify.disableConvert.title": "文字の変換を無効にする",
   "waveDashUnify.enableConvert.description": "文字の変換をします。",
