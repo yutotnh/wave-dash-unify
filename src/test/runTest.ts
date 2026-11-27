@@ -6,6 +6,7 @@ import {
   downloadAndUnzipVSCode,
   TestOptions,
 } from "@vscode/test-electron";
+import { TEST_LOCALE_ENV } from "./suite/locale";
 
 /**
  * CLI 引数を解析してオプションを取得する
@@ -63,6 +64,14 @@ async function main() {
     }
 
     await runTests(options);
+
+    // 表示言語ごとの訳の読み込みを確かめるため、日本語でもう一度起動する。
+    // 対象はsuite/index.tsが*.locale.test.jsだけに絞る
+    await runTests({
+      ...options,
+      launchArgs: ["--locale=ja"],
+      extensionTestsEnv: { [TEST_LOCALE_ENV]: "ja" },
+    });
   } catch (err) {
     console.error("Failed to run tests", err);
     process.exit(1);
