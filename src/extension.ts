@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import { createDebouncer, Debouncer } from "./debounce";
 import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
+import { logError, setupLog } from "./log";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
 export const FULLWIDTH_TILDE_CODE_POINT = 0xff5e;
@@ -89,6 +90,7 @@ const pendingConversions = new Map<
 const saveConversionDebouncers = new Map<string, Debouncer>();
 
 export function activate(context: vscode.ExtensionContext) {
+  setupLog(context);
   setupStatusBarItem();
 
   context.subscriptions.push(
@@ -473,8 +475,9 @@ async function syncEditorWithConvertedFile(document: vscode.TextDocument) {
 
   try {
     await vscode.commands.executeCommand("workbench.action.files.revert");
-  } catch {
-    // revertに失敗した場合の追加リカバリ手段は無いため、ここでは無視する
+  } catch (error) {
+    // revertに失敗した場合の追加リカバリ手段は無いため、記録だけして続ける
+    logError(`Failed to revert ${document.uri.toString()}`, error);
   }
 }
 
@@ -731,8 +734,9 @@ export function deactivate() {
   for (const key of [...pendingConversions.keys()]) {
     try {
       flushPendingConversion(key, true);
-    } catch {
-      // deactivate中の失敗に追加のリカバリ手段は無いため、ここでは無視する
+    } catch (error) {
+      // deactivate中の失敗に追加のリカバリ手段は無いため、記録だけして続ける
+      logError(`Failed to convert ${key} on deactivate`, error);
     }
   }
 

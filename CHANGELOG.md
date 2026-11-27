@@ -12,6 +12,10 @@ or each release's GitHub Releases page for those.
 
 ## [Unreleased]
 
+### Added
+
+- 保存後のエディターの同期や終了時の変換に失敗したとき、出力パネルの「Wave Dash Unify」に内容を記録するようにしました。
+
 ### Changed
 
 - ステータスバーの項目をクリックすると、選択肢を出さずにすぐ変換の有効/無効が切り替わるようにしました。これに伴い、選択肢を出す内部コマンド`waveDashUnify.SelectEnableOrDisable`を削除しました。([#818](https://github.com/yutotnh/wave-dash-unify/pull/818))
