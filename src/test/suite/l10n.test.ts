@@ -1,7 +1,14 @@
+import * as l10n from "@vscode/l10n";
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { bundleFileNames } from "../../l10n";
+import * as tmp from "tmp";
+import { bundleFileNames, setupL10n } from "../../l10n";
+
+// out/test/suite から見た拡張機能のルート
+const extensionPath = path.resolve(__dirname, "../../../");
+
+const ENABLED_TOOLTIP = "Wave Dash Unify is enabled (click to disable)";
 
 suite("l10n", () => {
   test("言語IDに対応するバンドル名を返す", () => {
@@ -22,11 +29,43 @@ suite("l10n", () => {
     ]);
   });
 
-  test("日本語のバンドルが同梱される場所にある", () => {
-    // out/test/suite から見た拡張機能のルート
-    const extensionPath = path.resolve(__dirname, "../../../");
-    const file = path.join(extensionPath, "l10n", "bundle.l10n.ja.json");
+  suite("setupL10n", () => {
+    // @vscode/l10nの状態はモジュール全体で共有されるため、他のテストに残さない
+    teardown(() => {
+      l10n.config({ contents: {} });
+    });
 
-    assert.ok(fs.existsSync(file), `${file} がありません`);
+    test("日本語では同梱の訳を返す", () => {
+      setupL10n(extensionPath, "ja");
+
+      assert.strictEqual(
+        l10n.t(ENABLED_TOOLTIP),
+        "Wave Dash Unify は有効です (クリックで無効化)",
+      );
+    });
+
+    test("バンドルの無い言語では英語の原文を返す", () => {
+      setupL10n(extensionPath, "ja");
+      setupL10n(extensionPath, "en");
+
+      assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
+    });
+
+    test("バンドルが壊れていても例外を投げず英語の原文を返す", () => {
+      const dir = tmp.dirSync({ unsafeCleanup: true });
+      try {
+        fs.mkdirSync(path.join(dir.name, "l10n"));
+        fs.writeFileSync(
+          path.join(dir.name, "l10n", "bundle.l10n.ja.json"),
+          "{ broken",
+        );
+
+        setupL10n(dir.name, "ja");
+
+        assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
+      } finally {
+        dir.removeCallback();
+      }
+    });
   });
 });

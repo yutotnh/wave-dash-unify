@@ -14,7 +14,7 @@ or each release's GitHub Releases page for those.
 
 ### Added
 
-- ステータスバーのツールチップと拡張機能の説明を、VS Codeの表示言語が日本語のときに日本語で表示するようにしました。
+- ステータスバーのツールチップと拡張機能の説明を、VS Codeの表示言語が日本語のときに日本語で表示するようにしました。([#819](https://github.com/yutotnh/wave-dash-unify/pull/819))
 
 ### Changed
 

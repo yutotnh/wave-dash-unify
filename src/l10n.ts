@@ -11,17 +11,30 @@ import * as vscode from "vscode";
  * `engines.vscode`を1.73.0以上に上げたら、このファイルと`@vscode/l10n`を消し、
  * `l10n.t`を`vscode.l10n.t`に置き換えればよい
  *
- * 対応するバンドルが無い言語(英語を含む)では何もせず、`l10n.t()`は英語の原文を返す
+ * 対応するバンドルが無い、または読めない言語では、`l10n.t()`は英語の原文を返す
  *
  * @param extensionPath 拡張機能のインストール先
+ * @param language 表示言語(テスト用。省略時は`vscode.env.language`)
  */
-export function setupL10n(extensionPath: string) {
-  const file = bundleFileNames(vscode.env.language)
+export function setupL10n(
+  extensionPath: string,
+  language: string = vscode.env.language,
+) {
+  // 前回読み込んだバンドルを残さない
+  l10n.config({ contents: {} });
+
+  const file = bundleFileNames(language)
     .map((name) => path.join(extensionPath, "l10n", name))
     .find((file) => fs.existsSync(file));
 
-  if (file !== undefined) {
+  if (file === undefined) {
+    return;
+  }
+
+  try {
     l10n.config({ fsPath: file });
+  } catch {
+    // 翻訳が読めないだけで変換機能まで止めないよう、英語表示のまま続ける
   }
 }
 
