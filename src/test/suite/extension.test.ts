@@ -931,9 +931,22 @@ suite("Extension Test Suite", () => {
   });
 
   /**
-   * ステータスバーの初期化を行う関数をテストする
-   * NOTE: テスト対象のsetupStatusBarItem()はグローバル変数の初期化を行う関数なのでテストしない
+   * ステータスバー項目にIDと名前が付くことを確かめる
+   *
+   * IDがあると、ステータスバーの右クリックメニューからこの項目だけを非表示にできる。
+   * テストが読み込むextensionは実行中の拡張機能(dist)とは別のモジュールなので、
+   * ここで作り直しても実行中の拡張機能の項目には影響しない
    */
+  test("status bar item has an id and a name", () => {
+    const statusBarItem = extension.setupStatusBarItem();
+
+    try {
+      assert.strictEqual(statusBarItem.id, "waveDashUnify.status");
+      assert.strictEqual(statusBarItem.name, "Wave Dash Unify");
+    } finally {
+      statusBarItem.dispose();
+    }
+  });
 
   /**
    * ステータスバーに全角チルダを波ダッシュに変換する機能の有効/無効を表示する関数をテストする

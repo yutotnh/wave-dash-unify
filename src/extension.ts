@@ -659,8 +659,10 @@ export function replaceSpecificCharactersInBuffer(str: Buffer): Buffer {
 
 /**
  * ステータスバーにWaveDashUnifyの状態を表示する
+ *
+ * @returns 作成したステータスバー項目
  */
-export function setupStatusBarItem() {
+export function setupStatusBarItem(): vscode.StatusBarItem {
   // IDを付けると、ステータスバーの右クリックメニューからこの項目だけを非表示にできる
   statusBarItem = vscode.window.createStatusBarItem(
     "waveDashUnify.status",
@@ -671,6 +673,8 @@ export function setupStatusBarItem() {
   statusBarItem.command = "waveDashUnify.SelectEnableOrDisable";
 
   updateStatusBarItem(statusBarItem);
+
+  return statusBarItem;
 }
 
 /**
