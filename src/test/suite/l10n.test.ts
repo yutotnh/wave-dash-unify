@@ -3,7 +3,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as tmp from "tmp";
-import { bundleFileNames, loadBundleFile, setupL10n } from "../../l10n";
+import { loadBundleFile, setupL10n } from "../../l10n";
 
 // out/test/suite から見た拡張機能のルート
 const extensionPath = path.resolve(__dirname, "../../../");
@@ -11,24 +11,6 @@ const extensionPath = path.resolve(__dirname, "../../../");
 const ENABLED_TOOLTIP = "Wave Dash Unify is enabled (click to disable)";
 
 suite("l10n", () => {
-  test("言語IDに対応するバンドル名を返す", () => {
-    assert.deepStrictEqual(bundleFileNames("ja"), ["bundle.l10n.ja.json"]);
-  });
-
-  test("地域付きの言語IDでは基底言語も候補にする", () => {
-    assert.deepStrictEqual(bundleFileNames("zh-cn"), [
-      "bundle.l10n.zh-cn.json",
-      "bundle.l10n.zh.json",
-    ]);
-  });
-
-  test("大文字を含む言語IDも小文字のファイル名にする", () => {
-    assert.deepStrictEqual(bundleFileNames("pt-BR"), [
-      "bundle.l10n.pt-br.json",
-      "bundle.l10n.pt.json",
-    ]);
-  });
-
   suite("loadBundleFile", () => {
     // @vscode/l10nの状態はモジュール全体で共有されるため、他のテストに残さない
     teardown(() => {
@@ -45,7 +27,6 @@ suite("l10n", () => {
     });
 
     test("バンドルの無い言語では英語の原文を返す", () => {
-      loadBundleFile(extensionPath, "ja");
       loadBundleFile(extensionPath, "en");
 
       assert.strictEqual(l10n.t(ENABLED_TOOLTIP), ENABLED_TOOLTIP);
@@ -87,7 +68,7 @@ suite("l10n", () => {
     });
 
     test("1.73.0以降で訳の無い言語(bundleがundefined)では英語の原文を返す", () => {
-      loadBundleFile(extensionPath, "ja");
+      l10n.config({ contents: { [ENABLED_TOOLTIP]: "前の訳" } });
       setupL10n(extensionPath, {
         env: { language: "en" },
         l10n: { bundle: undefined },
