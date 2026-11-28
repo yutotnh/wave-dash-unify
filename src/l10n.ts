@@ -2,6 +2,7 @@ import * as l10n from "@vscode/l10n";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { logError } from "./log";
 
 /**
  * `vscode`のうち`setupL10n`が使う部分の型(テストで差し替えるため)
@@ -14,7 +15,7 @@ export interface L10nHost {
 }
 
 /**
- * 表示言語の訳を`@vscode/l10n`に読み込む。最初の`l10n.t()`より前に呼ぶこと
+ * 表示言語の訳を`@vscode/l10n`に読み込む。`setupLog`の後、最初の`l10n.t()`より前に呼ぶこと
  *
  * - VS Code 1.73.0以降: package.jsonの`l10n`を見てVS Code自身が読み込んだ
  *   `vscode.l10n.bundle`を渡す
@@ -57,6 +58,6 @@ export function loadBundleFile(extensionPath: string, language: string) {
     l10n.config({ fsPath: file });
   } catch (error) {
     // 翻訳が読めないだけで変換機能まで止めないよう、英語表示のまま続ける
-    console.error(`Wave Dash Unify: failed to load ${file}`, error);
+    logError(`Failed to load ${file}`, error);
   }
 }
