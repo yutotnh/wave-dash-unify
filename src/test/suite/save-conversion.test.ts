@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import * as extension from "../../extension";
 import * as fs from "fs";
+import * as path from "path";
 import * as tmp from "tmp";
 import * as vscode from "vscode";
 import { assertDecodedAsEucjp } from "./vscode-api-compat";
@@ -515,5 +516,149 @@ suite("issue #13 (C-1): 非アクティブなエディタでの再発防止", ()
     await vscode.commands.executeCommand(
       "workbench.action.revertAndCloseActiveEditor",
     );
+  });
+});
+
+/**
+ * ワークスペース内のファイルは、非アクティブなタブで保存されても(「すべて保存」や
+ * files.autoSave: onFocusChangeなど)すぐ変換される
+ *
+ * 背景タブでもVS Codeのファイルウォッチャーが再読込してetagを同期するため、
+ * 上のC-1(ワークスペース外のファイル)と違い先送りしない。
+ * files.watcherExcludeで監視から外したファイルは、ワークスペース外と同じく先送りする
+ */
+suite("非アクティブなタブでの保存: ワークスペース内のファイル", () => {
+  // 文字列: "ああああ～"
+  const initialContent = Buffer.from([
+    0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0x8f, 0xa2, 0xb7,
+  ]);
+  const unconverted = Buffer.concat([initialContent, Buffer.from("a")]);
+  const converted = Buffer.from([
+    0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa4, 0xa2, 0xa1, 0xc1, 0x61,
+  ]);
+
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  /**
+   * ワークスペース内にファイルを作り、編集して保存した直後に別タブへ切り替える
+   *
+   * @param relativePath ワークスペースからの相対パス
+   * @returns filePath: 作ったファイル, document: 開いたドキュメント
+   */
+  async function saveThenSwitchTab(relativePath: string): Promise<{
+    filePath: string;
+    document: vscode.TextDocument;
+  }> {
+    for (const key of [
+      "enableConvert",
+      "fullwidthTildeToWaveDash",
+      "numeroSignToNumeroSign",
+    ]) {
+      await vscode.workspace
+        .getConfiguration("waveDashUnify")
+        .update(key, true, vscode.ConfigurationTarget.Global);
+    }
+    await vscode.workspace
+      .getConfiguration("files")
+      .update("autoGuessEncoding", true, vscode.ConfigurationTarget.Global);
+
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(folder, "前提条件エラー: ワークスペースが開かれていない");
+
+    const filePath = vscode.Uri.joinPath(folder.uri, relativePath).fsPath;
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, initialContent);
+
+    const document = await vscode.workspace.openTextDocument(filePath);
+    const textEditor = await vscode.window.showTextDocument(document);
+    assertDecodedAsEucjp(
+      document,
+      "ああああ" + String.fromCodePoint(extension.FULLWIDTH_TILDE_CODE_POINT),
+      "前提条件エラー: ファイルがEUC-JPと判定されなかった",
+    );
+
+    await textEditor.edit((editBuilder) => {
+      editBuilder.insert(
+        document.lineAt(document.lineCount - 1).range.end,
+        "a",
+      );
+    });
+    assert.strictEqual(await document.save(), true);
+
+    // デバウンス発火前に別タブへ切り替え、発火するまで待つ
+    await vscode.window.showTextDocument(
+      await vscode.workspace.openTextDocument({ content: "別タブ" }),
+    );
+    await sleep(extension.SAVE_CONVERSION_DEBOUNCE_MS * 2 + 100);
+
+    return { filePath, document };
+  }
+
+  test("非アクティブのまま変換され、その後の保存も失敗しない", async function () {
+    this.timeout(30000);
+
+    const { filePath, document } = await saveThenSwitchTab("watched.txt");
+
+    assert.strictEqual(
+      fs.readFileSync(filePath).toString("hex"),
+      converted.toString("hex"),
+      "ワークスペース内のファイルなのに、非アクティブな間に変換されなかった",
+    );
+
+    // 戻って編集・保存しても issue #13 が起きない
+    const textEditor = await vscode.window.showTextDocument(document);
+    await sleep(100);
+    await textEditor.edit((editBuilder) => {
+      editBuilder.insert(
+        document.lineAt(document.lineCount - 1).range.end,
+        "b",
+      );
+    });
+    assert.strictEqual(
+      await document.save(),
+      true,
+      "issue #13 が再発した: 非アクティブなまま変換した後の保存が失敗した",
+    );
+
+    await vscode.commands.executeCommand(
+      "workbench.action.revertAndCloseActiveEditor",
+    );
+  });
+
+  test("files.watcherExcludeに該当するファイルは先送りされる", async function () {
+    this.timeout(30000);
+
+    const filesConfig = vscode.workspace.getConfiguration("files");
+    await filesConfig.update(
+      "watcherExclude",
+      // globパターンはcamelCaseにできないため除外する
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      { "**/excluded/**": true },
+      vscode.ConfigurationTarget.Workspace,
+    );
+
+    try {
+      const { filePath, document } = await saveThenSwitchTab(
+        "excluded/unwatched.txt",
+      );
+
+      assert.strictEqual(
+        fs.readFileSync(filePath).toString("hex"),
+        unconverted.toString("hex"),
+        "監視外のファイルなのに、非アクティブな間に変換されてしまった",
+      );
+
+      await vscode.window.showTextDocument(document);
+      await vscode.commands.executeCommand(
+        "workbench.action.revertAndCloseActiveEditor",
+      );
+    } finally {
+      await filesConfig.update(
+        "watcherExclude",
+        undefined,
+        vscode.ConfigurationTarget.Workspace,
+      );
+    }
   });
 });

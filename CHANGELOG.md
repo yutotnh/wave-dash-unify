@@ -22,6 +22,7 @@ or each release's GitHub Releases page for those.
 
 ### Fixed
 
+- 「すべて保存」や自動保存(`files.autoSave`: `onFocusChange`など)で非アクティブなタブが保存されたとき、そのタブを開き直すまでファイルが変換されず、その間にほかのツール(gitなど)から読むと文字化けしていた問題を修正しました。ワークスペース内のファイルは非アクティブなままでもすぐ変換します。ワークスペース外のファイルと`files.watcherExclude`で監視から外したファイルは、これまでどおりタブを開き直した時に変換します。([#820](https://github.com/yutotnh/wave-dash-unify/pull/820))
 - `waveDashUnify.statusBarFormat`で同じ変数(`${numeroSignCount}`など)を複数回書いたとき、最初の1つしか置換されず、2つ目以降が`${...}`のまま表示される問題を修正しました。
 
 ## [0.5.0] - 2026-08-04
