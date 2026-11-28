@@ -1,7 +1,9 @@
+import * as l10n from "@vscode/l10n";
 import * as vscode from "vscode";
 import * as fs from "fs";
 import { createDebouncer, Debouncer } from "./debounce";
 import { canBeEUCJP, isEUCJPConfirmed, needsBytesToDecideEUCJP } from "./eucjp";
+import { setupL10n } from "./l10n";
 import { logError, setupLog } from "./log";
 
 export const WAVEDASH_CODE_POINT = 0x301c;
@@ -91,6 +93,7 @@ const saveConversionDebouncers = new Map<string, Debouncer>();
 
 export function activate(context: vscode.ExtensionContext) {
   setupLog(context);
+  setupL10n(context.extensionPath);
   setupStatusBarItem();
 
   context.subscriptions.push(
@@ -708,8 +711,8 @@ export function updateStatusBarItem(statusBarItem: vscode.StatusBarItem) {
     ? "waveDashUnify.disableConvert"
     : "waveDashUnify.enableConvert";
   statusBarItem.tooltip = isEnabled
-    ? "Wave Dash Unify is enabled (click to disable)"
-    : "Wave Dash Unify is disabled (click to enable)";
+    ? l10n.t("Wave Dash Unify is enabled (click to disable)")
+    : l10n.t("Wave Dash Unify is disabled (click to enable)");
 
   const count = countSpecificCharacters(activeEditor.document.getText());
 

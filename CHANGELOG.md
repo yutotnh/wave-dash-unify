@@ -14,7 +14,8 @@ or each release's GitHub Releases page for those.
 
 ### Added
 
-- 保存後のエディターの同期や終了時の変換に失敗したとき、出力パネルの「Wave Dash Unify」に内容を記録するようにしました。
+- ステータスバーのツールチップと拡張機能の説明を、VS Codeの表示言語が日本語のときに日本語で表示するようにしました。([#819](https://github.com/yutotnh/wave-dash-unify/pull/819))
+- 保存後のエディターの同期、終了時の変換、翻訳の読み込みに失敗したとき、出力パネルの「Wave Dash Unify」に内容を記録するようにしました。([#821](https://github.com/yutotnh/wave-dash-unify/pull/821))
 
 ### Changed
 
