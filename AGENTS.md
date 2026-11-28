@@ -31,6 +31,16 @@ wave-dash-unifyは単一パッケージのTypeScript製VS Code拡張機能。本
 - 注意: `@types/node`(型定義)が追従する`.nvmrc`と、Extension Host内で実際に動くコードの実行時Node.jsバージョン(`engines.vscode`が同梱するNode.js、現状v16.13.0)は別物。両者の乖離により`tsc`がNode 18+専用APIの誤用を見逃さないよう、`eslint.config.js`の`eslint-plugin-n`(`n/no-unsupported-features/*`)が`src/**/*.ts`を実行時floorでガードしている(`src/test/runTest.ts`だけはdev/CI機で動くため`>=18.3.0`で上書き。詳細は`.github/dependabot.yml`の`@types/node`コメント参照)
   - このガードが見るのは**グローバル参照とモジュールメンバのみ**。プロトタイプメソッド(`Array#at`、`String#replaceAll`など)は対象外で、そちらは`tsconfig.json`の`"lib": ["ES2021"]`が捕捉する。ルールのデータ自体も網羅的ではない(`localStorage`/`EventSource`/`Array.fromAsync`等はeslint-plugin-n 18.xに項目がない)ため、安全網であって保証ではない
 
+## 文言の翻訳(i18n)
+
+ユーザーに見える文言は直書きせず、英語を原文として次のどちらかを通す。日本語訳も同じPRで更新する。
+
+- `package.json`の文言: `%key%`にして`package.nls.json`と`package.nls.ja.json`に書く
+- コード内の文言: `@vscode/l10n`の`l10n.t("English message")`を使い、`npm run l10n-export`で`l10n/bundle.l10n.json`を生成してから`l10n/bundle.l10n.ja.json`に訳を書く。可変部分は連結せず`{0}`で渡す
+- `npm run l10n-check`(`npm run lint`に含まれ、CIでも実行される)が、訳の漏れ・生成し忘れ・プレースホルダの不一致を検出する
+- 公式の`vscode.l10n`はVS Code 1.73.0以降のため、1.73.0未満では訳を自分で読み込む(`src/l10n.ts`のコメント参照)
+- 訳語はVS Code本体の日本語訳に合わせる(例: 「ステータス バー」)
+
 ## パフォーマンスに関する変更
 
 保存処理・ホットパス(キーストローク毎の処理など)に影響する変更は、変更前後の実行時間を計測しPR本文に含める。

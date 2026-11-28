@@ -1,4 +1,5 @@
 {
+  "description": "Automatically converts both FULLWIDTH TILDE and WAVE DASH characters to the WAVE DASH character",
   "waveDashUnify.enableConvert.title": "Enable character conversion",
   "waveDashUnify.disableConvert.title": "Disable character conversion",
   "waveDashUnify.enableConvert.description": "Enable character conversion.",
